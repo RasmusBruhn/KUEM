@@ -1,6 +1,7 @@
 import EMSimClass as EM
 import numpy as np
 import time as t
+import matplotlib.pyplot as plt
 
 Size = 25
 Exact = False
@@ -54,3 +55,4 @@ ShowCount = 25
 
 Sim.plot_E(x, axis1 = x[:, :, 0], axis2 = x[:, :, 1])
 Sim.plot_V(x)
+plt.show()
