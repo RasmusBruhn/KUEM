@@ -1,12 +1,13 @@
 import numpy as np
 import scipy.sparse as sparse
 import matplotlib.pyplot as plt
-import cv2 as cv2
+#import cv2 as cv2
 import scipy.sparse.linalg as slinalg
 import time as time
 import scipy.optimize as opt
 
 # Default arguments:
+# delta_x       Numpy array of length 3 containing the size of the grid
 # dx:           Numpy array of length 3 containing the difference of coordinates between grid points
 # N:            Numpy array of length 3 containing the number of grid points
 # x0:           Numpy array of length 3 containing the minimum value of each coordinate
@@ -22,23 +23,120 @@ import scipy.optimize as opt
 # mu0:          The permeability of free space
 
 # Function to get the vector indices for the 1 dimensional vector given the indices for the 3 dimensional vector:
-# Returns a numpy array or number with the shape n.shape[:-1] with the indices for the 1 dimensional vector
+# Returns a numpy array or number with the shape n.shape[1:] with the indices for the 1 dimensional vector
 #
 # n:            A numpy numpy array with the indices for the 3 dimensional vector, 
-#               more than one point can be specified but the last axis must be the indices for one point
+#               more than one point can be specified but the first axis must be the indices for one point
 # N:            The size of each axis
 def get_vector_index(n, N):
-    Factor = np.array([1, N[0], N[0] * N[1]])
-    return np.array(np.sum(n * Factor, axis = -1), dtype = int)
+    Factor = np.array([1, N[0], N[0] * N[1]]).reshape((3,) + (1,) * (len(n.shape) - 1))
+    return np.array(np.sum(n * Factor, axis = 0), dtype = int)
 
-# A function to interpolate the values of the 8 cornors  
+# Calculates the total weights for each of the 8 corners in the interpolation
+# Returns an array with the shape (8,) + W.shape[1:] containing the weights for the 8 corners
+# for each point. For (x,y,z)  the points are sorted as (-, -, -), (-, -, +), (-, +, -), (-, +, +),
+# (+, -, -), (+, -, +), (+, +, -), (+, +, +)
 #
-def interpolation(W, Values):
+# W:    The weights for each point, the shape can be any length but the first axis
+#       should be of length 3 and contain the weights for each of the coordinates,
+#       where 0 is for the - corner and 1 is for +
+def total_weight(W):
+    # Initialise the total weight array
+    Result = np.ones((8,) + W.shape[1:])
     
+    # Go through all of the coordinates
+    for i in range(3):
+        # Go through and multiply the weights v=1-w or w in the pattern:
+        #       | | | | | | | | |
+        # i = 0: v v v v w w w w
+        # i = 1: v v w w v v w w
+        # i = 2: v w v w v w v w
+        for j in range(int(2 ** i)):
+            # Do the v's
+            Result[int(j * 2 ** (3 - i)):int((j + 1 / 2) * 2 ** (3 - i))] *= (1 - W[i]).reshape((1,) + W.shape[1:])
+            # Do the w's
+            Result[int((j + 1 / 2) * 2 ** (3 - i)):int((j + 1) * 2 ** (3 - i))] *= W[i].reshape((1,) + W.shape[1:])
+            
+    # Return the result
+    return Result
+
+# A function to interpolate the values of 8 corners in the middle 
+#
+# W:        The weights for each point for the different directions,
+#           the first axis should be length 3 and contain the weights for the same point
+# Values:   The values at the corners, the first axis defines the corner sorted by
+#           (-, -, -), (-, -, +), (-, +, -), (-, +, +), (+, -, -), (+, -, +), (+, +, -), (+, +, +)
+#           The shape of Values and W should be the same except for the first axis
+def interpolation(W, Values):
+    # Get the total weights
+    TotalW = total_weight(W)
+    
+    # Calculate the lerp
+    return np.sum(TotalW * Values, axis = 0)
+
+def sample_values(Field, Points, dx, N, x0):
+    # Find the new shape of dx and x0
+    ShapeX = (3,) + (1,) * len(Points.shape)
+    ShapeP = (3, 1) + Points.shape[1:]
+
+    # Find the indices for the corners
+    CornerIndex = np.repeat(np.array((Points.reshape(ShapeP) - x0.reshape(ShapeX)) / dx.reshape(ShapeX), dtype = int), 8, axis = 1)
+
+    # Go through all of the coordinates
+    for i in range(3):
+        # Go through and multiply the weights v=1-w or w in the pattern:
+        #       | | | | | | | | |
+        # i = 0: - - - - + + + +
+        # i = 1: - - + + - - + +
+        # i = 2: - + - + - + - +
+        for j in range(int(2 ** i)):
+            # Add to the coordinates
+            CornerIndex[i, int((j + 1 / 2) * 2 ** (3 - i)):int((j + 1) * 2 ** (3 - i))] += 1
+            
+    # Get the vector index for each point
+    CornerVectorIndex = get_vector_index(CornerIndex, N)
+
+    # Get values from field
+    FieldValues = Field[CornerVectorIndex]
+    
+    # Find new shapes
+    ShapeX = (3,) + (1,) * (len(Points.shape) - 1)
+    
+    # Find weights
+    Weights = np.mod((Points - x0.reshape(ShapeX)) / dx.reshape(ShapeX), 1)
+    print(Weights)
+    # Interpolate
+    return interpolation(Weights, FieldValues)
+
+def default_scalar_scale(x):
+    k = (np.max(x) - np.min(x)) / 2 * 0.1
+    m = (np.max(x) + np.min(x)) / 2
+    return np.tanh((x - m) / k)
+
+# Plot a scalar field
+def plot_scalar(Field, Points, dx, N, x0, scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):
+    # Get values
+    Values = sample_values(Field, Points, dx, N, x0)
+        
+    # Calculate clim
+    if clim is None:
+        clim = np.array([np.min(Values), np.max(Values)], dtype = float)
+    
+    clim = scale(clim)
+    
+    # Create figure
+    if ax is None:
+        _, ax = plt.subplots(figsize = figsize, dpi = dpi)
+        
+    # Plot vectors
+    Plot = plt.imshow(scale(Values), cmap = cmap, clim = clim, origin = "lower")
+    
+    return ax, Plot
+
 
 # Creates matrices for differentiating once, 
 # Uses default arguments
-def get_ddx(dx, N, x0, c, mu0):
+def get_ddx(dx, N):
     # Get function values from neighbohring points
     df = np.empty(3, dtype = np.ndarray)
     for i in range(3):
@@ -56,7 +154,7 @@ def get_ddx(dx, N, x0, c, mu0):
     
 # Creates matrices for differentiating twice, 
 # Uses default arguments
-def get_ddx2(dx, N, x0, c, mu0):
+def get_ddx2(dx, N):
     # Get function values from neighbohring points
     df = np.empty(3, dtype = np.ndarray)
     for i in range(3):
@@ -73,9 +171,9 @@ def get_ddx2(dx, N, x0, c, mu0):
 
 # Creates a function to take the gradient in cartesian coordinates
 # Uses default arguments
-def get_grad(dx, N, x0, c, mu0):
+def get_grad(dx, N):
     # Get the diff matrices
-    ddx = get_ddx(dx, N, x0, c, mu0)
+    ddx = get_ddx(dx, N)
     
     # Calculate the gradient
     # Scalar: A scalar field of shape (N1 * N2 * N3)
@@ -94,9 +192,9 @@ def get_grad(dx, N, x0, c, mu0):
 
 # Creates a function to take the divergence in cartesian coordinates
 # Uses default arguments
-def get_div(dx, N, x0, c, mu0):
+def get_div(dx, N):
     # Get the diff matrices
-    ddx = get_ddx(dx, N, x0, c, mu0)
+    ddx = get_ddx(dx, N)
     
     # Calculate the divergence
     # Vector: A vector field to take the divergence of
@@ -108,9 +206,9 @@ def get_div(dx, N, x0, c, mu0):
 
 # Creates a function to take the curl in cartesian coordinates
 # Uses default arguments
-def get_curl(dx, N, x0, c, mu0):
+def get_curl(dx, N):
     # Get diff matrices
-    ddx = get_ddx(dx, N, x0, c, mu0)
+    ddx = get_ddx(dx, N)
     
     # Calculate the curl
     # Vector: A vector fied to take the curl of
@@ -128,9 +226,9 @@ def get_curl(dx, N, x0, c, mu0):
 
 # Creates the laplacian matrix in cartesian coordinates
 # Uses default arguments
-def get_lapl(dx, N, x0, c, mu0):
+def get_lapl(dx, N):
     # Get ddx2
-    ddx2 = get_ddx2(dx, N, x0, c, mu0)
+    ddx2 = get_ddx2(dx, N)
     
     # Create laplacian
     return np.sum(ddx2)
@@ -301,28 +399,36 @@ class sim:
             raise Exception("J has wrong type, it it is " + str(type(self.__J)) + " but it should be a function")
         
         # Get vector calculus functions
-        self.__grad = grad(self.__dx, self.__N, self.__x0, self.__c, self.__mu0)
+        self.__grad = grad(self.__dx, self.__N)
             
         if not callable(self.__grad):
             raise Exception("grad has wrong type, it is " + str(type(self.__grad)) + " but it should be a function")
 
-        self.__div = div(self.__dx, self.__N, self.__x0, self.__c, self.__mu0)
+        self.__div = div(self.__dx, self.__N)
             
         if not callable(self.__div):
             raise Exception("div has wrong type, it is " + str(type(self.__div)) + " but it should be a function")
 
-        self.__curl = curl(self.__dx, self.__N, self.__x0, self.__c, self.__mu0)
+        self.__curl = curl(self.__dx, self.__N)
             
         if not callable(self.__curl):
             raise Exception("curl has wrong type, it is " + str(type(self.__curl)) + " but it should be a function")
                 
-        self.__lapl = lapl(self.__dx, self.__N, self.__x0, self.__c, self.__mu0)
+        self.__lapl = lapl(self.__dx, self.__N)
                 
         if not isinstance(self.__lapl, sparse.csr_matrix):
             raise Exception("lapl has wrong type, is " + str(type(self.__lapl)) + " but it should be " + str(sparse.csr_matrix))
             
         # Update the value for k
         self.__k /= -self.__lapl[0, 0]
+    
+    # Get electric potential
+    def get_V(self):
+        return self.__A[:, 0] * self.__c
+    
+    # Get vector potential
+    def get_A(self):
+        return self.A[:, 1:]
     
     # Get E-field
     def get_E(self):

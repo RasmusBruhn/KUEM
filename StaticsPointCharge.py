@@ -5,7 +5,7 @@ import EMStatics as EM
 plt.close("all")
 
 Charge = 1
-Size = np.array([149, 149, 149], dtype = int)
+Size = np.array([50, 50, 50], dtype = int)
 approx_n = 100
 exact = False
 
@@ -29,3 +29,16 @@ print("Expected run time: %.2g s" %(Sim.estimate_solve_time(exact = exact)))
 
 # Solve the system
 print("Solve time = %.2g s" %(Sim.solve(exact = exact)))
+
+# Get points to sample over
+x = np.linspace(0.1, 0.9, 1000)
+X, Y = np.meshgrid(x, x)
+Points = np.empty((3,) + X.shape)
+Points[0] = X
+Points[1] = Y
+Points[2] = 0.5
+
+def scale(x):
+    return np.log(x)
+
+EM.plot_scalar(Sim.get_V(), Points, 1 / Size, Size, np.array([0, 0, 0], dtype = float), scale)
