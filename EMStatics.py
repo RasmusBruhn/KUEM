@@ -119,7 +119,7 @@ def default_scalar_scale(x):
 # dx, N, x0 are default arguments
 # Field:        A scalar field on vector form from which the values will be taken
 # Points:       The points from where the values should be taken, length 3 along first axis containing the coordinates
-#               the rest of the array can be anything
+#               the rest of the array should be 2 dimensional
 # extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
 # scale:        Function to scale the values of the field
 # ax:           The axes to draw the plot inside
@@ -148,6 +148,17 @@ def plot_scalar(Field, Points, dx, N, x0, extent = [0, 1, 0, 1], scale = default
     
     return fig, ax, Plot
 
+# Plot the values along a line in a scalar field
+# dx, N, x0 are default arguments
+# Field:        A scalar field on vector form from which the values will be taken
+# Points:       The points from where the values should be taken, length 3 along first axis containing the coordinates
+#               the rest of the array should be 1 dimensional
+# extent:       Used to label the axis must be given as [x_min, x_max]
+# scale:        Function to scale the values of the field
+# ax:           The axes to draw the plot inside
+# figsize:      The size of the figure if ax is not given
+# dpi:          The resolution of the figure if ax is not given
+# fmt:          The fmt used for plotting
 def plot_1D(Field, Points, dx, N, x0, extent = [0, 1], scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-"):
     # Get values
     Values = sample_values(Field, Points, dx, N, x0)
@@ -182,12 +193,18 @@ def sample_points_plane(x_hat, y_hat, x_c, Size, Resolution):
     # Calculate the real positions
     return x_c.reshape((3, 1, 1)) + x_hat.reshape((3, 1, 1)) * X.reshape((1,) + X.shape) + y_hat.reshape((3, 1, 1)) * Y.reshape((1,) + Y.shape)
     
+# Creates an array of points sampled from a line between x1 and x2
+# Returns the coordinates for all points along a line to sample field values for in 1D plotting
+#
+# x1:           The starting point of the line
+# x2:           The ending poing of the line
+# Resolution:   The number of points to be sampled
 def sample_points_line(x1, x2, Resolution):
     # Make an evenly distributed linspace between the 2 points
     return x1.reshape((3, 1)) + (x2.reshape((3, 1)) - x1.reshape((3, 1))) * np.linspace(0, 1, Resolution).reshape((1, -1))
     
 
-# Creates matrices for differentiating once, 
+# Creates matrices for differentiating once
 # dx and N are default arguments
 def get_ddx(dx, N):
     # Get function values from neighbohring points
