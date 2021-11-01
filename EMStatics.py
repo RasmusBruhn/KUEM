@@ -129,7 +129,7 @@ def default_scalar_scale(x):
 # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the field,
 #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
 #               values in the field
-def plot_scalar(Field, Points, dx, N, x0, extent = [0, 1, 0, 1] , scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):
+def plot_scalar(Field, Points, dx, N, x0, extent = [0, 1, 0, 1], scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):
     # Get values
     Values = sample_values(Field, Points, dx, N, x0)
         
@@ -141,12 +141,25 @@ def plot_scalar(Field, Points, dx, N, x0, extent = [0, 1, 0, 1] , scale = defaul
     
     # Create figure
     if ax is None:
-        _, ax = plt.subplots(figsize = figsize, dpi = dpi)
+        fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
         
-    # Plot vectors
+    # Plot scalar field
     Plot = ax.imshow(scale(Values), cmap = cmap, clim = clim, origin = "lower", extent = extent)
     
-    return ax, Plot
+    return fig, ax, Plot
+
+def plot_1D(Field, Points, dx, N, x0, extent = [0, 1], scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-"):
+    # Get values
+    Values = sample_values(Field, Points, dx, N, x0)
+
+    # Create figure
+    if ax is None:
+        fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
+        
+    # Plot graph
+    Plot = ax.plot(np.linspace(extent[0], extent[1], len(Values)), Values, fmt)
+    
+    return fig, ax, Plot
 
 # Creates an array of points sampled from a plane spanned by x_hat and y_hat and centered on x_c
 # Returns the coordinates for all of the points in a 2D array form for imshow
@@ -168,6 +181,10 @@ def sample_points_plane(x_hat, y_hat, x_c, Size, Resolution):
     
     # Calculate the real positions
     return x_c.reshape((3, 1, 1)) + x_hat.reshape((3, 1, 1)) * X.reshape((1,) + X.shape) + y_hat.reshape((3, 1, 1)) * Y.reshape((1,) + Y.shape)
+    
+def sample_points_line(x1, x2, Resolution):
+    # Make an evenly distributed linspace between the 2 points
+    return x1.reshape((3, 1)) + (x2.reshape((3, 1)) - x1.reshape((3, 1))) * np.linspace(0, 1, Resolution).reshape((1, -1))
     
 
 # Creates matrices for differentiating once, 
