@@ -25,9 +25,9 @@ import scipy.optimize as opt
 # Function to get the vector indices for the 1 dimensional vector given the indices for the 3 dimensional vector:
 # Returns a numpy array or number with the shape n.shape[1:] with the indices for the 1 dimensional vector
 #
+# N is default argument
 # n:            A numpy numpy array with the indices for the 3 dimensional vector, 
 #               more than one point can be specified but the first axis must be the indices for one point
-# N:            The size of each axis
 def get_vector_index(n, N):
     Factor = np.array([1, N[0], N[0] * N[1]]).reshape((3,) + (1,) * (len(n.shape) - 1))
     return np.array(np.sum(n * Factor, axis = 0), dtype = int)
@@ -104,17 +104,32 @@ def sample_values(Field, Points, dx, N, x0):
     
     # Find weights
     Weights = np.mod((Points - x0.reshape(ShapeX)) / dx.reshape(ShapeX), 1)
-    print(Weights)
+
     # Interpolate
     return interpolation(Weights, FieldValues)
 
+# A default scale used in the scalar plotter
+# Returns a numpy array filled with the values in x scaled
+# 
+# x:    This is a numpy array of floating points
 def default_scalar_scale(x):
-    k = (np.max(x) - np.min(x)) / 2 * 0.1
-    m = (np.max(x) + np.min(x)) / 2
-    return np.tanh((x - m) / k)
+    return x
 
 # Plot a scalar field
-def plot_scalar(Field, Points, dx, N, x0, scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):
+# dx, N, x0 are default arguments
+# Field:        A scalar field on vector form from which the values will be taken
+# Points:       The points from where the values should be taken, length 3 along first axis containing the coordinates
+#               the rest of the array can be anything
+# extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
+# scale:        Function to scale the values of the field
+# ax:           The axes to draw the plot inside
+# figsize:      The size of the figure if ax is not given
+# dpi:          The resolution of the figure if ax is not given
+# cmap:         The colour map to plot the scalar field with
+# clim:         Array containing the (min, max) values in the colour map, these are the raw values of the field,
+#               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
+#               values in the field
+def plot_scalar(Field, Points, dx, N, x0, extent = [0, 1, 0, 1] , scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):
     # Get values
     Values = sample_values(Field, Points, dx, N, x0)
         
@@ -129,13 +144,27 @@ def plot_scalar(Field, Points, dx, N, x0, scale = default_scalar_scale, ax = Non
         _, ax = plt.subplots(figsize = figsize, dpi = dpi)
         
     # Plot vectors
-    Plot = plt.imshow(scale(Values), cmap = cmap, clim = clim, origin = "lower")
+    Plot = ax.imshow(scale(Values), cmap = cmap, clim = clim, origin = "lower", extent = extent)
     
     return ax, Plot
 
+# Creates an array of points sampled from a plane spanned by x_hat and y_hat and centered on x_c
+def sample_points_plane(x_hat, y_hat, x_c, Size, Resolution):
+    # Make sure x_hat and y_hat is normalised
+    x_hat /= np.sqrt(np.sum(x_hat ** 2))
+    y_hat /= np.sqrt(np.sum(y_hat ** 2))
+    
+    # Find the points in the x_hat, y_hat system
+    x = np.linspace(-Size[0] / 2, Size[0] / 2, Resolution[0])
+    y = np.linspace(-Size[1] / 2, Size[1] / 2, Resolution[1])
+    X, Y = np.meshgrid(x, y)
+    
+    # Calculate the real positions
+    return x_c.reshape((3, 1, 1)) + x_hat.reshape((3, 1, 1)) * X.reshape((1,) + X.shape) + y_hat.reshape((3, 1, 1)) * Y.reshape((1,) + Y.shape)
+    
 
 # Creates matrices for differentiating once, 
-# Uses default arguments
+# dx and N are default arguments
 def get_ddx(dx, N):
     # Get function values from neighbohring points
     df = np.empty(3, dtype = np.ndarray)
@@ -153,7 +182,7 @@ def get_ddx(dx, N):
 
     
 # Creates matrices for differentiating twice, 
-# Uses default arguments
+# dx and N are default arguments
 def get_ddx2(dx, N):
     # Get function values from neighbohring points
     df = np.empty(3, dtype = np.ndarray)
@@ -170,7 +199,7 @@ def get_ddx2(dx, N):
     return ddx2
 
 # Creates a function to take the gradient in cartesian coordinates
-# Uses default arguments
+# dx and N are default arguments
 def get_grad(dx, N):
     # Get the diff matrices
     ddx = get_ddx(dx, N)
@@ -191,7 +220,7 @@ def get_grad(dx, N):
     return calcGrad
 
 # Creates a function to take the divergence in cartesian coordinates
-# Uses default arguments
+# dx and N are default arguments
 def get_div(dx, N):
     # Get the diff matrices
     ddx = get_ddx(dx, N)
@@ -205,7 +234,7 @@ def get_div(dx, N):
     return calcDiv
 
 # Creates a function to take the curl in cartesian coordinates
-# Uses default arguments
+# dx and N are default arguments
 def get_curl(dx, N):
     # Get diff matrices
     ddx = get_ddx(dx, N)
@@ -225,7 +254,7 @@ def get_curl(dx, N):
     return calcCurl
 
 # Creates the laplacian matrix in cartesian coordinates
-# Uses default arguments
+# dx and N are default arguments
 def get_lapl(dx, N):
     # Get ddx2
     ddx2 = get_ddx2(dx, N)
@@ -355,7 +384,7 @@ class sim:
         # Store basic information
         self.__delta_x = np.array(delta_x.copy(), dtype = float)
         self.__N = np.array(N.copy(), dtype = int)
-        self.__dx = self.__delta_x / self.__N
+        self.__dx = self.__delta_x / (self.__N + 1)
         self.__x0 = np.array(x0.copy(), dtype = float)
         self.__c = float(c)
         self.__mu0 = float(mu0)
@@ -466,7 +495,7 @@ class sim:
     # size_n:   The number of points
     # size_min: The minimum size of the system to test
     # size_max: The maximum size of the system to test
-    def estimate_solve_time(self, exact = False, size_n = 11, size_min = 15, size_max = 25):
+    def estimate_solve_time(self, exact = False, size_n = 11, size_min = 15, size_max = 25, approx_n = 10):
         # Setup data
         Size = np.linspace(size_min, size_max, size_n, dtype = int)
         Time = np.empty(size_n)
@@ -474,7 +503,7 @@ class sim:
         for i in range(size_n):
             # Create class
             SizeTest = np.full(3, Size[i], dtype = int)
-            Sim = sim(SizeTest, delta_x = self.__delta_x, approx_n = self.__n, approx_k = self.__k, J = self.__genJ, grad = self.__genGrad, div = self.__genDiv, curl = self.__genCurl, lapl = self.__genLapl)
+            Sim = sim(SizeTest, delta_x = self.__delta_x, approx_n = approx_n, approx_k = self.__k, J = self.__genJ, grad = self.__genGrad, div = self.__genDiv, curl = self.__genCurl, lapl = self.__genLapl)
             
             # Simulate
             Time1 = time.time()
@@ -489,5 +518,5 @@ class sim:
             
         Val, _ = opt.curve_fit(FitFunc, Size ** 3, Time)
         
-        return FitFunc(self.__V, *Val)
+        return FitFunc(self.__V, *Val) / approx_n * self.__n
             
