@@ -31,6 +31,11 @@ def get_vector_index(n, N):
     Factor = np.array([1, N[0], N[0] * N[1]])
     return np.array(np.sum(n * Factor, axis = -1), dtype = int)
 
+# A function to interpolate the values of the 8 cornors  
+#
+def interpolation(W, Values):
+    
+
 # Creates matrices for differentiating once, 
 # Uses default arguments
 def get_ddx(dx, N, x0, c, mu0):
