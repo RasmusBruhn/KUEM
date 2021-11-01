@@ -149,6 +149,13 @@ def plot_scalar(Field, Points, dx, N, x0, extent = [0, 1, 0, 1] , scale = defaul
     return ax, Plot
 
 # Creates an array of points sampled from a plane spanned by x_hat and y_hat and centered on x_c
+# Returns the coordinates for all of the points in a 2D array form for imshow
+#
+# x_hat:        The direction for the x-axis
+# y_hat:        The direction for the y-axis
+# x_c:          The center point
+# Size:         2 component array giving the width in the x_hat and y_hat direction
+# Resolution:   2 component array giving the number of points in the x_hat and y_hat direction
 def sample_points_plane(x_hat, y_hat, x_c, Size, Resolution):
     # Make sure x_hat and y_hat is normalised
     x_hat /= np.sqrt(np.sum(x_hat ** 2))
