@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 #import cv2 as cv2
 import scipy.sparse.linalg as slinalg
 import time as time
-import scipy.optimize as opt
 
 # Default arguments:
 # delta_x       Numpy array of length 3 containing the size of the grid
@@ -70,10 +69,17 @@ def total_weight(W):
 def interpolation(W, Values):
     # Get the total weights
     TotalW = total_weight(W)
+    TotalW = TotalW.reshape(TotalW.shape + (1,) * (len(Values.shape) - len(W.shape)))
     
     # Calculate the lerp
     return np.sum(TotalW * Values, axis = 0)
 
+# Samples values at specific points from a field, interpolate to get smooth values from field
+# Return the values in the shape Points.shape[1:]
+#
+# dx, N and x0 are default arguments
+# Field:        The field to sample values from in vector from, this can also be a vector field
+# Points:       An array with the x,y,z coordinates in the first axis
 def sample_values(Field, Points, dx, N, x0):
     # Find the new shape of dx and x0
     ShapeX = (3,) + (1,) * len(Points.shape)
@@ -108,6 +114,25 @@ def sample_values(Field, Points, dx, N, x0):
     # Interpolate
     return interpolation(Weights, FieldValues)
 
+
+# Samples vectors at specific points from a field projected onto a 2D plane, interpolate to get smooth values from field
+# Return the values in the shape Points.shape[1:]
+#
+# dx, N and x0 are default arguments
+# Field:        The field to sample values from in vector from, this has to be a vector field
+# Points:       An array with the x,y,z coordinates in the first axis
+# x_hat:        A 3 long array for the direction of the x axis
+# y_hat:        A 3 long array for the direction of the y axis
+def sample_vectors(Field, Points, x_hat, y_hat, dx, N, x0):
+    # Get the 3D vectors
+    FieldValues = sample_values(Field, Points, dx, N, x0)
+    
+    # Find the x and y axis components
+    vx = np.sum(FieldValues * x_hat.reshape((1,) * (len(FieldValues.shape) - 1) + (3,)), axis = -1)
+    vy = np.sum(FieldValues * y_hat.reshape((1,) * (len(FieldValues.shape) - 1) + (3,)), axis = -1)
+
+    return vx, vy
+
 # A default scale used in the scalar plotter
 # Returns a numpy array filled with the values in x scaled
 # 
@@ -116,10 +141,8 @@ def default_scalar_scale(x):
     return x
 
 # Plot a scalar field
-# dx, N, x0 are default arguments
-# Field:        A scalar field on vector form from which the values will be taken
-# Points:       The points from where the values should be taken, length 3 along first axis containing the coordinates
-#               the rest of the array should be 2 dimensional
+#
+# Values:       The 2D array of values to plot
 # extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
 # scale:        Function to scale the values of the field
 # ax:           The axes to draw the plot inside
@@ -129,10 +152,7 @@ def default_scalar_scale(x):
 # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the field,
 #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
 #               values in the field
-def plot_scalar(Field, Points, dx, N, x0, extent = [0, 1, 0, 1], scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):
-    # Get values
-    Values = sample_values(Field, Points, dx, N, x0)
-        
+def plot_scalar(Values, extent = [0, 1, 0, 1], scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):
     # Calculate clim
     if clim is None:
         clim = np.array([np.min(Values), np.max(Values)], dtype = float)
@@ -144,31 +164,68 @@ def plot_scalar(Field, Points, dx, N, x0, extent = [0, 1, 0, 1], scale = default
         fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
         
     # Plot scalar field
-    Plot = ax.imshow(scale(Values), cmap = cmap, clim = clim, origin = "lower", extent = extent)
+    Plot = ax.imshow(np.transpose(scale(Values)), cmap = cmap, clim = clim, origin = "lower", extent = extent)
     
     return fig, ax, Plot
 
 # Plot the values along a line in a scalar field
-# dx, N, x0 are default arguments
-# Field:        A scalar field on vector form from which the values will be taken
-# Points:       The points from where the values should be taken, length 3 along first axis containing the coordinates
-#               the rest of the array should be 1 dimensional
+#
+# Values:       The 1D array of values to plot
 # extent:       Used to label the axis must be given as [x_min, x_max]
 # scale:        Function to scale the values of the field
 # ax:           The axes to draw the plot inside
 # figsize:      The size of the figure if ax is not given
 # dpi:          The resolution of the figure if ax is not given
 # fmt:          The fmt used for plotting
-def plot_1D(Field, Points, dx, N, x0, extent = [0, 1], scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-"):
-    # Get values
-    Values = sample_values(Field, Points, dx, N, x0)
-
+def plot_1D(Values, extent = [0, 1], scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-"):
     # Create figure
     if ax is None:
         fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
         
     # Plot graph
     Plot = ax.plot(np.linspace(extent[0], extent[1], len(Values)), Values, fmt)
+    
+    return fig, ax, Plot
+
+# Plot a vector field
+#
+# vx:           The vector components along the x axis to plot
+# vy:           The vector components along the y axis to plot
+# extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
+# scale:        Function to scale the values of the field
+# ax:           The axes to draw the plot inside
+# figsize:      The size of the figure if ax is not given
+# dpi:          The resolution of the figure if ax is not given
+# cmap:         The colour map to plot the vectors with
+# clim:         Array containing the (min, max) values in the colour map, these are the raw values of the vector lengths,
+#               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
+#               values of the lengths
+def plot_vector(vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):  
+    # Calculate the positions of the vectors
+    x = np.linspace(extent[0], extent[1], vx.shape[0] + 1)[:-1]
+    y = np.linspace(extent[2], extent[3], vx.shape[1] + 1)[:-1]
+    
+    # Calculate length of vectors
+    vAbs = np.sqrt(vx ** 2 + vy ** 2)    
+
+    # Calculate clim
+    if clim is None:
+        clim = np.array([np.min(vAbs), np.max(vAbs)], dtype = float)
+        
+    clim = scale(clim)
+
+    vAbs[vAbs == 0] = np.nan
+    
+    # Normalize lengths
+    vx = vx / vAbs
+    vy = vy / vAbs
+    
+    # Create figure
+    if ax is None:
+        fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
+        
+    # Plot vectors
+    Plot = ax.quiver(x, y, np.transpose(vx), np.transpose(vy), scale(vAbs), cmap = cmap, pivot = "middle", clim = clim)
     
     return fig, ax, Plot
 
@@ -188,7 +245,7 @@ def sample_points_plane(x_hat, y_hat, x_c, Size, Resolution):
     # Find the points in the x_hat, y_hat system
     x = np.linspace(-Size[0] / 2, Size[0] / 2, Resolution[0])
     y = np.linspace(-Size[1] / 2, Size[1] / 2, Resolution[1])
-    X, Y = np.meshgrid(x, y)
+    X, Y = np.meshgrid(x, y, indexing = "ij")
     
     # Calculate the real positions
     return x_c.reshape((3, 1, 1)) + x_hat.reshape((3, 1, 1)) * X.reshape((1,) + X.shape) + y_hat.reshape((3, 1, 1)) * Y.reshape((1,) + Y.shape)
@@ -355,12 +412,28 @@ def solve_exact(J, laplacian, mu0):
 # A0:           The starting guess for the potential
 # n:            The number of iterations for the approximation
 # k:            The approximation parameter to make sure it does not diverge
-def solve_approx(J, Laplacian, mu0, A0, n, k):
+# progress:     How to show how much time is remaining, False if it should be disabled
+#               a number to show time remaining with a period >= progress
+def solve_approx(J, Laplacian, mu0, A0, n, k, progress = False):
+    # Setup the starting guess
     A = A0
+    
+    # Get the evolution matrix
     Matrix = sparse.identity(J.shape[0], format = "csr") + k * Laplacian
     
-    for _ in range(n):
+    # Setup time for writing time remaining
+    Time0 = time.time()
+    Time1 = Time0
+    
+    for i in range(n):
+        # Evolve one step
         A = Matrix.dot(A) + mu0 * k * J
+        
+        # Write the time remaining
+        Time2 = time.time()
+        if progress is not False and (Time2 - Time1 >= progress):
+            print("%.2g s remaining"%((Time2 - Time0) * (n - i - 1) / (i + 1)))
+            Time1 = Time2
         
     return A
 
@@ -515,8 +588,11 @@ class sim:
     # Finds the electrostatics solution
     # Returns the time it took
     #
-    # exact:    Whether it should be solved exactly or approximatly, should be a boolean
-    def solve(self, exact = False):
+    # exact:        Whether it should be solved exactly or approximatly, should be a boolean
+    # progress:     How to show how much time is remaining, False if it should be disabled
+    #               a number to show time remaining with a period >= progress
+
+    def solve(self, exact = False, progress = False):
         Time1 = time.time()
         # Do it exact
         if exact is True:
@@ -524,40 +600,8 @@ class sim:
             
         # Do it approximatly
         else:
-            self.__A = solve_approx(self.__J(), self.__lapl, self.__mu0, self.__A, self.__n, self.__k)
+            self.__A = solve_approx(self.__J(), self.__lapl, self.__mu0, self.__A, self.__n, self.__k, progress = progress)
             
         Time2 = time.time()
         
         return Time2 - Time1
-        
-    # Estimate the time to do the simulation by solving smaller systems and extrapolating the time
-    #
-    # exact:    Whether it should be solved exactly or approximatly, should be a boolean
-    # size_n:   The number of points
-    # size_min: The minimum size of the system to test
-    # size_max: The maximum size of the system to test
-    def estimate_solve_time(self, exact = False, size_n = 11, size_min = 15, size_max = 25, approx_n = 10):
-        # Setup data
-        Size = np.linspace(size_min, size_max, size_n, dtype = int)
-        Time = np.empty(size_n)
-        
-        for i in range(size_n):
-            # Create class
-            SizeTest = np.full(3, Size[i], dtype = int)
-            Sim = sim(SizeTest, delta_x = self.__delta_x, approx_n = approx_n, approx_k = self.__k, J = self.__genJ, grad = self.__genGrad, div = self.__genDiv, curl = self.__genCurl, lapl = self.__genLapl)
-            
-            # Simulate
-            Time1 = time.time()
-            Sim.solve(exact = exact)
-            Time2 = time.time()
-            
-            Time[i] = Time2 - Time1
-            
-        # Estimate
-        def FitFunc(x, a, n):
-            return a * x ** n
-            
-        Val, _ = opt.curve_fit(FitFunc, Size ** 3, Time)
-        
-        return FitFunc(self.__V, *Val) / approx_n * self.__n
-            
