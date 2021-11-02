@@ -226,7 +226,7 @@ def plot_vector(vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, ax 
         fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
         
     # Plot vectors
-    Plot = ax.quiver(X, Y, np.transpose(vx), np.transpose(vy), scale(vAbs), cmap = cmap, pivot = "middle", clim = clim)
+    Plot = ax.quiver(X, Y, vx, vy, scale(vAbs), cmap = cmap, pivot = "middle", clim = clim)
     
     return fig, ax, Plot
 
