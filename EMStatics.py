@@ -70,7 +70,7 @@ def interpolation(W, Values):
     # Get the total weights
     TotalW = total_weight(W)
     TotalW = TotalW.reshape(TotalW.shape + (1,) * (len(Values.shape) - len(W.shape)))
-    
+
     # Calculate the lerp
     return np.sum(TotalW * Values, axis = 0)
 
@@ -84,7 +84,7 @@ def sample_values(Field, Points, dx, N, x0):
     # Find the new shape of dx and x0
     ShapeX = (3,) + (1,) * len(Points.shape)
     ShapeP = (3, 1) + Points.shape[1:]
-
+    
     # Find the indices for the corners
     CornerIndex = np.repeat(np.array((Points.reshape(ShapeP) - x0.reshape(ShapeX)) / dx.reshape(ShapeX), dtype = int), 8, axis = 1)
 
@@ -104,7 +104,7 @@ def sample_values(Field, Points, dx, N, x0):
 
     # Get values from field
     FieldValues = Field[CornerVectorIndex]
-    
+
     # Find new shapes
     ShapeX = (3,) + (1,) * (len(Points.shape) - 1)
     
@@ -203,7 +203,8 @@ def plot_1D(Values, extent = [0, 1], scale = default_scalar_scale, ax = None, fi
 def plot_vector(vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):  
     # Calculate the positions of the vectors
     x = np.linspace(extent[0], extent[1], vx.shape[0] + 1)[:-1]
-    y = np.linspace(extent[2], extent[3], vx.shape[1] + 1)[:-1]
+    y = np.linspace(extent[2], extent[3], vy.shape[1] + 1)[:-1]
+    X, Y = np.meshgrid(x, y, indexing = "ij")
     
     # Calculate length of vectors
     vAbs = np.sqrt(vx ** 2 + vy ** 2)    
@@ -225,7 +226,7 @@ def plot_vector(vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, ax 
         fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
         
     # Plot vectors
-    Plot = ax.quiver(x, y, np.transpose(vx), np.transpose(vy), scale(vAbs), cmap = cmap, pivot = "middle", clim = clim)
+    Plot = ax.quiver(X, Y, np.transpose(vx), np.transpose(vy), scale(vAbs), cmap = cmap, pivot = "middle", clim = clim)
     
     return fig, ax, Plot
 
@@ -245,10 +246,9 @@ def sample_points_plane(x_hat, y_hat, x_c, Size, Resolution):
     # Find the points in the x_hat, y_hat system
     x = np.linspace(-Size[0] / 2, Size[0] / 2, Resolution[0])
     y = np.linspace(-Size[1] / 2, Size[1] / 2, Resolution[1])
-    X, Y = np.meshgrid(x, y, indexing = "ij")
     
     # Calculate the real positions
-    return x_c.reshape((3, 1, 1)) + x_hat.reshape((3, 1, 1)) * X.reshape((1,) + X.shape) + y_hat.reshape((3, 1, 1)) * Y.reshape((1,) + Y.shape)
+    return x_c.reshape((3, 1, 1)) + x_hat.reshape((3, 1, 1)) * x.reshape((1, -1, 1)) + y_hat.reshape((3, 1, 1)) * y.reshape((1, 1, -1))
     
 # Creates an array of points sampled from a line between x1 and x2
 # Returns the coordinates for all points along a line to sample field values for in 1D plotting
@@ -571,7 +571,7 @@ class sim:
     
     # Get vector potential
     def get_A(self):
-        return self.A[:, 1:]
+        return self.__A[:, 1:]
     
     # Get E-field
     def get_E(self):
@@ -585,13 +585,20 @@ class sim:
     def get_S(self):
         return calc_S(self.get_E(), self.get_B(), self.__mu0)
 
+    # Get the charge density
+    def get_Rho(self):
+        return self.__J()[:, 0] / self.__c
+    
+    # Get the current density
+    def get_J(self):
+        return self.__J()[:, 1:]
+
     # Finds the electrostatics solution
     # Returns the time it took
     #
     # exact:        Whether it should be solved exactly or approximatly, should be a boolean
     # progress:     How to show how much time is remaining, False if it should be disabled
     #               a number to show time remaining with a period >= progress
-
     def solve(self, exact = False, progress = False):
         Time1 = time.time()
         # Do it exact
@@ -605,3 +612,21 @@ class sim:
         Time2 = time.time()
         
         return Time2 - Time1
+    
+    # Samples values at specific points from a field, interpolate to get smooth values from field
+    # Return the values in the shape Points.shape[1:]
+    #
+    # Field:        The field to sample values from in vector from, this can also be a vector field
+    # Points:       An array with the x,y,z coordinates in the first axis
+    def sample_values(self, Field, Points):
+        return sample_values(Field, Points, self.__dx, self.__N, self.__x0)
+        
+    # Samples vectors at specific points from a field projected onto a 2D plane, interpolate to get smooth values from field
+    # Return the values in the shape Points.shape[1:]
+    #
+    # Field:        The field to sample values from in vector from, this has to be a vector field
+    # Points:       An array with the x,y,z coordinates in the first axis
+    # x_hat:        A 3 long array for the direction of the x axis
+    # y_hat:        A 3 long array for the direction of the y axis
+    def sample_vectors(self, Field, Points, x_hat, y_hat):
+        return sample_vectors(Field, Points, x_hat, y_hat, self.__dx, self.__N, self.__x0)
