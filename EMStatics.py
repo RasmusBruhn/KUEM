@@ -463,7 +463,7 @@ def solve_approx(J, Laplacian, mu0, A0, n, k, progress = False):
 # curl:         A function to return a function to calculate the curl in the coordinate system used
 # lapl:    A function to calculate the laplacian in the coordinate system used
 class sim:
-    def __init__(self, N, delta_x = np.array([1, 1, 1]), x0 = np.array([0, 0, 0]), c = 1, mu0 = 1, approx_n = 100, approx_k = 1, init = True, init_copy = False, J = default_J, grad = get_grad, div = get_div, curl = get_curl, lapl = get_lapl):
+    def __init__(self, N, delta_x = np.array([1, 1, 1]), x0 = np.array([0, 0, 0]), c = 1, mu0 = 1, approx_n = 1000, approx_k = 1, init = True, init_copy = False, J = default_J, grad = get_grad, div = get_div, curl = get_curl, lapl = get_lapl):
         # Test for type errors
         if not isinstance(N, np.ndarray):
             raise Exception("N has wrong type, it is " + str(type(N)) + " but it should be " + str(np.ndarray))
