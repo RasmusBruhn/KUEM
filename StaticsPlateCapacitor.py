@@ -66,6 +66,25 @@ Values2 = Sim.sample_values(Sim.get_V(), Points2)
 fig2, _, _ = EM.plot_1D(Values2, extent = [Start[2], End[2]])
 fig2.show()
 
+Start = np.array([0.4, 0, -Length / 2], dtype = float)
+End = np.array([0.4, 0, Length / 2], dtype = float)
+Points2 = EM.sample_points_line(Start, End, 1000)
+Values2 = Sim.sample_values(Sim.get_V(), Points2)
+
+# Plot V along x-axis
+fig2, _, _ = EM.plot_1D(Values2, extent = [Start[2], End[2]])
+fig2.show()
+
+Start = np.array([0.8, 0, -Length / 2], dtype = float)
+End = np.array([0.8, 0, Length / 2], dtype = float)
+Points2 = EM.sample_points_line(Start, End, 1000)
+Values2 = Sim.sample_values(Sim.get_V(), Points2)
+
+# Plot V along x-axis
+fig2, _, _ = EM.plot_1D(Values2, extent = [Start[2], End[2]])
+fig2.show()
+
+
 # Get points to sample over
 Points3 = EM.sample_points_plane(np.array([1, 0, 0], dtype = float), np.array([0, 0, 1], dtype = float), Center, Width, np.array([30, 30]))
 vx3, vy3 = Sim.sample_vectors(Sim.get_E(), Points3, np.array([1, 0, 0], dtype = float), np.array([0, 0, 1], dtype = float))
