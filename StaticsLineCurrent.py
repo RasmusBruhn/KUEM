@@ -41,8 +41,7 @@ Points = EM.sample_points_plane(np.array([1, 0, 0], dtype = float), np.array([0,
 Values = Sim.sample_values(Sim.get_A()[:, 2], Points)
 
 # Plot V in xy plane
-fig, _, _ = EM.plot_scalar(Values, extent = [Center[0] - Width[0] / 2, Center[0] + Width[0] / 2, Center[1] - Width[1] / 2, Center[1] + Width[1] / 2], scale = scale)
-fig.show()
+EM.plot_scalar(Values, extent = [Center[0] - Width[0] / 2, Center[0] + Width[0] / 2, Center[1] - Width[1] / 2, Center[1] + Width[1] / 2], scale = scale)
 
 # Get points to sample over
 Start = np.array([0, 0, 0], dtype = float)
@@ -51,13 +50,13 @@ Points2 = EM.sample_points_line(Start, End, 1000)
 Values2 = Sim.sample_values(Sim.get_A()[:, 2], Points2)
 
 # Plot V along x-axis
-fig2, _, _ = EM.plot_1D(Values2, extent = [Start[0], End[0]])
-fig2.show()
+EM.plot_1D(Values2, extent = [Start[0], End[0]])
 
 # Get points to sample over
 Points3 = EM.sample_points_plane(np.array([1, 0, 0], dtype = float), np.array([0, 1, 0], dtype = float), Center, Width, np.array([30, 30]))
 vx3, vy3 = Sim.sample_vectors(Sim.get_B(), Points3, np.array([1, 0, 0], dtype = float), np.array([0, 1, 0], dtype = float))
 
 # Plot E in xy plane
-fig3, _, _ = EM.plot_vector(vx3, vy3, scale = scale, extent = [Center[0] - Width[0] / 2, Center[0] + Width[0] / 2, Center[1] - Width[1] / 2, Center[1] + Width[1] / 2])
-fig3.show()
+EM.plot_vector(vx3, vy3, scale = scale, extent = [Center[0] - Width[0] / 2, Center[0] + Width[0] / 2, Center[1] - Width[1] / 2, Center[1] + Width[1] / 2])
+
+plt.show()

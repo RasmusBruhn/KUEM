@@ -152,6 +152,10 @@ ValuesForK = ConvergenceKTest(CorrectA, JVector, Laplacian, k_vals, 100)
 plt.figure()
 plt.plot(RangeVals, np.log(ValuesForK), "-")
 plt.ylim(4, 6)
+plt.xlabel("$k_r$")
+plt.ylabel("log(Error)")
+plt.title("The error as a function of k")
+plt.savefig("FindK.png")
 
 print(RangeVals[np.argmin(ValuesForK)])
 

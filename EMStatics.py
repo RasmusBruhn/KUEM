@@ -177,13 +177,13 @@ def plot_scalar(Values, extent = [0, 1, 0, 1], scale = default_scalar_scale, ax 
 # figsize:      The size of the figure if ax is not given
 # dpi:          The resolution of the figure if ax is not given
 # fmt:          The fmt used for plotting
-def plot_1D(Values, extent = [0, 1], scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-"):
+def plot_1D(Values, extent = [0, 1], scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-", label = ""):
     # Create figure
     if ax is None:
         fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
         
     # Plot graph
-    Plot = ax.plot(np.linspace(extent[0], extent[1], len(Values)), Values, fmt)
+    Plot = ax.plot(np.linspace(extent[0], extent[1], len(Values)), Values, fmt, label = label)
     
     return fig, ax, Plot
 
@@ -446,8 +446,8 @@ def solve_approx(J, Laplacian, mu0, A0, n, k, progress = False):
 # x0:           Array with the minimum value of the coordinates
 # c:            The value of c, the speed of light
 # mu0:          The value of mu0, the permeability of free space
-# approx_n:     The number of times to run the approximation algorithm
-# approx_k:     Approximation parameter to make sure it does not diverge
+# approx_n:     The base number of times to run the approximation algorithm, this is multiplied by Nx^2+Ny^2+Nz^2
+# approx_k:     The base approximation parameter to make sure it does not diverge, this is multiplied by -1 / lapl[0, 0]
 # init:         If true then the potentials will initialize to be 0 everywhere
 #               If it is a numpy array of the correct size then it will
 #               use that as the starting condition, the shape should either be
@@ -463,7 +463,7 @@ def solve_approx(J, Laplacian, mu0, A0, n, k, progress = False):
 # curl:         A function to return a function to calculate the curl in the coordinate system used
 # lapl:    A function to calculate the laplacian in the coordinate system used
 class sim:
-    def __init__(self, N, delta_x = np.array([1, 1, 1]), x0 = np.array([0, 0, 0]), c = 1, mu0 = 1, approx_n = 1000, approx_k = 1, init = True, init_copy = False, J = default_J, grad = get_grad, div = get_div, curl = get_curl, lapl = get_lapl):
+    def __init__(self, N, delta_x = np.array([1, 1, 1]), x0 = np.array([0, 0, 0]), c = 1, mu0 = 1, approx_n = 0.1, approx_k = 1, init = True, init_copy = False, J = default_J, grad = get_grad, div = get_div, curl = get_curl, lapl = get_lapl):
         # Test for type errors
         if not isinstance(N, np.ndarray):
             raise Exception("N has wrong type, it is " + str(type(N)) + " but it should be " + str(np.ndarray))
@@ -489,8 +489,8 @@ class sim:
         if not (isinstance(mu0, int) or isinstance(mu0, float)):
             raise Exception("mu0 has wrong dtype, it is " + str(type(mu0)) + " but it should be " + str(int) + " or " + str(float))
 
-        if not isinstance(approx_n, int):
-            raise Exception("approx_n has wrong dtype, it is " + str(type(approx_n)) + " but it should be " + str(int))
+        if not (isinstance(approx_n, int) or isinstance(approx_n, float)):
+            raise Exception("approx_n has wrong dtype, it is " + str(type(approx_n)) + " but it should be " + str(int) + " or " + str(float))
         
         if not (isinstance(approx_k, int) or isinstance(approx_k, float)):
             raise Exception("approx_k has wrong dtype, it is " + str(type(approx_k)) + " but it should be " + str(int) + " or " + str(float))
@@ -503,7 +503,7 @@ class sim:
         self.__c = float(c)
         self.__mu0 = float(mu0)
         self.__V = np.prod(self.__N)
-        self.__n = int(approx_n)
+        self.__n = int(approx_n * np.sum(self.__N ** 2))
         self.__k = float(approx_k)
         
         # Create starting condition for potential
@@ -564,7 +564,7 @@ class sim:
             
         # Update the value for k
         self.__k /= -self.__lapl[0, 0]
-    
+
     # Get electric potential
     def get_V(self):
         return self.__A[:, 0] * self.__c
