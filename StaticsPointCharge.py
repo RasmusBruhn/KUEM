@@ -5,7 +5,7 @@ import EMStatics as EM
 plt.close("all")
 
 Charge = 1
-Size = np.array([149, 149, 149], dtype = int)
+Size = np.array([99, 99, 99], dtype = int)
 approx_n = 0.1
 exact = False
 x0 = np.array([-1, -1, -1], dtype = float)
@@ -25,9 +25,12 @@ def J(dx, N, x0, c, mu0):
 
 # Create simulation class
 Sim = EM.sim(Size, delta_x = delta_x, x0 = x0, approx_n = approx_n, J = J)
+Sim2 = EM.sim(Size, delta_x = delta_x, x0 = x0, approx_n = approx_n, J = J, boundaries = [["open", "open"], ["open", "open"], ["open", "open"]])
 
 # Solve the system
 print("Solve time = %.2g s" %(Sim.solve(exact = exact, progress = 1)))
+print("Solve time = %.2g s" %(Sim2.solve(exact = exact, progress = 1)))
+
 
 def scale(x):
     return np.log(x)
@@ -46,13 +49,17 @@ Start = np.array([0, 0, 0], dtype = float)
 End = np.array([1, 0, 0], dtype = float)
 Points2 = EM.sample_points_line(Start, End, 1000)
 Values2 = Sim.sample_values(Sim.get_V(), Points2)
+Values22 = Sim.sample_values(Sim2.get_V(), Points2)
 
 # Plot V along x-axis
 _, ax2, _ = EM.plot_1D(Values2, extent = [Start[0], End[0]], label = "Sim")
+EM.plot_1D(Values22, extent = [Start[0], End[0]], ax = ax2, label = "Sim open")
 ax2.plot(np.linspace(0.01, 1, 1000), 1 / (4 * np.pi * np.linspace(0.01, 1, 1000)), "-", label = "Theory")
 ax2.set_xlabel("Distance")
 ax2.set_ylabel("Potential")
 ax2.set_title("Potential of a point charge as a function of distance")
+
+
 ax2.legend()
 
 # Get points to sample over

@@ -12,6 +12,9 @@ import time as time
 # x0:           Numpy array of length 3 containing the minimum value of each coordinate
 # c:            The speed of light
 # mu0:          The permeability of free space
+# boundaries:   The boundary conditions, it is a 3 long list, one element for each coordinate
+#               each element can either be "periodic" or a 2 long list with the boundary conditions
+#               in the negative and the positive direction. These can either be "open", "closed" or a matrix for a custom boundary condition
 
 # Default vector arguments:
 # grad:         Function to calculate gradient of scalar field
@@ -146,13 +149,14 @@ def default_scalar_scale(x):
 # extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
 # scale:        Function to scale the values of the field
 # ax:           The axes to draw the plot inside
+# fig:          The figure to draw in, if given then ax must also be given
 # figsize:      The size of the figure if ax is not given
 # dpi:          The resolution of the figure if ax is not given
 # cmap:         The colour map to plot the scalar field with
 # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the field,
 #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
 #               values in the field
-def plot_scalar(Values, extent = [0, 1, 0, 1], scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):
+def plot_scalar(Values, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):
     # Calculate clim
     if clim is None:
         clim = np.array([np.min(Values), np.max(Values)], dtype = float)
@@ -174,10 +178,11 @@ def plot_scalar(Values, extent = [0, 1, 0, 1], scale = default_scalar_scale, ax 
 # extent:       Used to label the axis must be given as [x_min, x_max]
 # scale:        Function to scale the values of the field
 # ax:           The axes to draw the plot inside
+# fig:          The figure to draw in, if given then ax must also be given
 # figsize:      The size of the figure if ax is not given
 # dpi:          The resolution of the figure if ax is not given
 # fmt:          The fmt used for plotting
-def plot_1D(Values, extent = [0, 1], scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-", label = ""):
+def plot_1D(Values, extent = [0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-", label = ""):
     # Create figure
     if ax is None:
         fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
@@ -193,6 +198,7 @@ def plot_1D(Values, extent = [0, 1], scale = default_scalar_scale, ax = None, fi
 # vy:           The vector components along the y axis to plot
 # extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
 # scale:        Function to scale the values of the field
+# fig:          The figure to draw in, if given then ax must also be given
 # ax:           The axes to draw the plot inside
 # figsize:      The size of the figure if ax is not given
 # dpi:          The resolution of the figure if ax is not given
@@ -200,7 +206,7 @@ def plot_1D(Values, extent = [0, 1], scale = default_scalar_scale, ax = None, fi
 # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the vector lengths,
 #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
 #               values of the lengths
-def plot_vector(vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):  
+def plot_vector(vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):  
     # Calculate the positions of the vectors
     x = np.linspace(extent[0], extent[1], vx.shape[0] + 1)[:-1]
     y = np.linspace(extent[2], extent[3], vy.shape[1] + 1)[:-1]
@@ -261,46 +267,133 @@ def sample_points_line(x1, x2, Resolution):
     return x1.reshape((3, 1)) + (x2.reshape((3, 1)) - x1.reshape((3, 1))) * np.linspace(0, 1, Resolution).reshape((1, -1))
     
 
-# Creates matrices for differentiating once
-# dx and N are default arguments
-def get_ddx(dx, N):
-    # Get function values from neighbohring points
-    df = np.empty(3, dtype = np.ndarray)
-    for i in range(3):
-        df[i] = np.ones(np.prod(N[:i + 1]))
-        df[i][-np.prod(N[:i]):] = 0
-        df[i] = np.tile(df[i], np.prod(N[i + 1:]))[:-np.prod(N[:i])]
+# Creates boundary matrices, this is matrices with ones at the diagonal at points at each of the 6 boundaries
+# the first dimension is the coordinate and the second dimension is the direction (positive or negative)
+# N is a default argument
+def get_boundaries_open(N):
+    # Make list to save the boundaries (diagonals at the points at boundary)
+    Bounds = np.empty((3, 2), dtype = sparse.csr_matrix)
     
-    # Get derivatives
+    # Go through all 3 coordinates
+    for Coordinate in range(3):
+        # Go through each direction
+        for Dir in range(2):
+            # Calculate the position of the offdiagonal
+            OffPos = np.prod(N[:Coordinate])
+            
+            # Create a tile
+            Tile = np.zeros(np.prod(N[:Coordinate + 1]))
+            #OffTile = np.zeros(np.prod(N[:Coordinate + 1]))
+            
+            # Add the ones
+            if (Dir == 0):
+                Tile[:np.prod(N[:Coordinate])] = 1
+                #OffTile[:np.prod(N[:Coordinate])] = -1
+                OffPos *= -1
+                
+            else:
+                Tile[-np.prod(N[:Coordinate]):] = 1
+                #OffTile[-np.prod(N[:Coordinate]):] = -1
+                
+            # Create the diagonal
+            Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))
+            #OffDiag = np.tile(OffTile, np.prod(N[Coordinate + 1:]))[:-np.prod(N[:Coordinate])]
+            
+            # Create the boundary
+            #Bounds[Coordinate, Dir] = sparse.diags([Diag, OffDiag], [0, OffPos], format = "csr")
+            Bounds[Coordinate, Dir] = sparse.diags([Diag], [0], format = "csr")
+            
+    return Bounds
+
+
+# Creates matrices for differentiating once
+# dx, N and boundaries are default arguments
+def get_ddx(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
+    # Make a list for (ddx, ddy, ddz)
     ddx = np.empty(3, dtype = sparse.csr_matrix)
-    for i in range(3):
-        ddx[i] = sparse.diags([df[i], -df[i]], [np.prod(N[:i]), -np.prod(N[:i])], format = "csr") / (2 * dx[i])
+    
+    # Get the open boundaries
+    OpenBounds = get_boundaries_open(N)
+    
+    # Go through each coordinate
+    for Coordinate in range(3):
+        # Create a tile
+        Tile = np.ones(np.prod(N[:Coordinate + 1]))
+        
+        # Add zeros at the boundaries
+        Tile[-np.prod(N[:Coordinate]):] = 0
+        
+        # Create the diagonal
+        Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))[:-np.prod(N[:Coordinate])]
+        
+        # Create the matrix
+        ddx[Coordinate] = sparse.diags([Diag, -Diag], [np.prod(N[:Coordinate]), -np.prod(N[:Coordinate])], format = "csr")
+        
+        # Add the open boundaries
+        if boundaries[Coordinate][0] == "open":
+            ddx[Coordinate] -= OpenBounds[Coordinate, 0]
+            
+        elif isinstance(boundaries[Coordinate][0], sparse.csr_matrix):
+            ddx[Coordinate] -= boundaries[Coordinate][0]
+            
+        if boundaries[Coordinate][1] == "open":
+            ddx[Coordinate] += OpenBounds[Coordinate, 0]
+            
+        elif isinstance(boundaries[Coordinate][1], sparse.csr_matrix):
+            ddx[Coordinate] += boundaries[Coordinate][1]
+        
+        # Correct the value
+        ddx[Coordinate] /= (2 * dx[Coordinate])
 
     return ddx
 
     
 # Creates matrices for differentiating twice, 
-# dx and N are default arguments
-def get_ddx2(dx, N):
-    # Get function values from neighbohring points
-    df = np.empty(3, dtype = np.ndarray)
-    for i in range(3):
-        df[i] = np.ones(np.prod(N[:i + 1]))
-        df[i][-np.prod(N[:i]):] = 0
-        df[i] = np.tile(df[i], np.prod(N[i + 1:]))[:-np.prod(N[:i])]
-    
-    # Get derivatives
+# dx, N and boundaries are default arguments
+def get_ddx2(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
+    # Make a list for (ddx, ddy, ddz)
     ddx2 = np.empty(3, dtype = sparse.csr_matrix)
-    for i in range(3):
-        ddx2[i] = sparse.diags([-2 * np.ones(np.prod(N)), df[i], df[i]], [0, np.prod(N[:i]), -np.prod(N[:i])], format = "csr") / (dx[i] ** 2)
+
+    # Get the open boundaries
+    OpenBounds = get_boundaries_open(N)
+
+    # Go through each coordinate
+    for Coordinate in range(3):
+        # Create a tile
+        Tile = np.ones(np.prod(N[:Coordinate + 1]))
+        
+        # Add zeros at the edges
+        Tile[-np.prod(N[:Coordinate]):] = 0
+        
+        # Create the diagonal
+        Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))[:-np.prod(N[:Coordinate])]
+        
+        # Create the matrix
+        ddx2[Coordinate] = sparse.diags([-2 * np.ones(np.prod(N)), Diag, Diag], [0, np.prod(N[:Coordinate]), -np.prod(N[:Coordinate])], format = "csr")
+
+        # Add open boundary conditions
+        if boundaries[Coordinate][0] == "open":
+            ddx2[Coordinate] += OpenBounds[Coordinate, 0]
+            
+        elif isinstance(boundaries[Coordinate][0], sparse.csr_matrix):
+            ddx2[Coordinate] += boundaries[Coordinate][0]
+            
+        if boundaries[Coordinate][1] == "open":
+            ddx2[Coordinate] += OpenBounds[Coordinate, 0]
+
+        elif isinstance(boundaries[Coordinate][1], sparse.csr_matrix):
+            ddx2[Coordinate] += boundaries[Coordinate][1]
+
+        # Correct the value
+        ddx2[Coordinate] /= dx[Coordinate] ** 2
 
     return ddx2
 
 # Creates a function to take the gradient in cartesian coordinates
-# dx and N are default arguments
-def get_grad(dx, N):
+# dx, N and boundaries are default arguments
+def get_grad(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
     # Get the diff matrices
-    ddx = get_ddx(dx, N)
+    ddx = get_ddx(dx, N, boundaries = boundaries)
     
     # Calculate the gradient
     # Scalar: A scalar field of shape (N1 * N2 * N3)
@@ -318,10 +411,10 @@ def get_grad(dx, N):
     return calcGrad
 
 # Creates a function to take the divergence in cartesian coordinates
-# dx and N are default arguments
-def get_div(dx, N):
+# dx, N and boundaries are default arguments
+def get_div(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
     # Get the diff matrices
-    ddx = get_ddx(dx, N)
+    ddx = get_ddx(dx, N, boundaries = boundaries)
     
     # Calculate the divergence
     # Vector: A vector field to take the divergence of
@@ -332,10 +425,10 @@ def get_div(dx, N):
     return calcDiv
 
 # Creates a function to take the curl in cartesian coordinates
-# dx and N are default arguments
-def get_curl(dx, N):
+# dx, N and boundaries are default arguments
+def get_curl(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
     # Get diff matrices
-    ddx = get_ddx(dx, N)
+    ddx = get_ddx(dx, N, boundaries = boundaries)
     
     # Calculate the curl
     # Vector: A vector fied to take the curl of
@@ -352,10 +445,10 @@ def get_curl(dx, N):
     return calcCurl
 
 # Creates the laplacian matrix in cartesian coordinates
-# dx and N are default arguments
-def get_lapl(dx, N):
+# dx, N and boundaries are default arguments
+def get_lapl(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
     # Get ddx2
-    ddx2 = get_ddx2(dx, N)
+    ddx2 = get_ddx2(dx, N, boundaries = boundaries)
     
     # Create laplacian
     return np.sum(ddx2)
@@ -439,13 +532,9 @@ def solve_approx(J, Laplacian, mu0, A0, n, k, progress = False):
 
 # The simulation class, create this class to define your simulation,
 # Then use it's methods to run the simulation and diagnistics/plotting
+# N, delta_x, x0, c, mu0 and boundaries are default arguments
 #
 # Initialize:
-# N:            Array with the number of grid points in each direction
-# delta_x:      Array with the size of the grid
-# x0:           Array with the minimum value of the coordinates
-# c:            The value of c, the speed of light
-# mu0:          The value of mu0, the permeability of free space
 # approx_n:     The base number of times to run the approximation algorithm, this is multiplied by Nx^2+Ny^2+Nz^2
 # approx_k:     The base approximation parameter to make sure it does not diverge, this is multiplied by -1 / lapl[0, 0]
 # init:         If true then the potentials will initialize to be 0 everywhere
@@ -463,7 +552,7 @@ def solve_approx(J, Laplacian, mu0, A0, n, k, progress = False):
 # curl:         A function to return a function to calculate the curl in the coordinate system used
 # lapl:    A function to calculate the laplacian in the coordinate system used
 class sim:
-    def __init__(self, N, delta_x = np.array([1, 1, 1]), x0 = np.array([0, 0, 0]), c = 1, mu0 = 1, approx_n = 0.1, approx_k = 1, init = True, init_copy = False, J = default_J, grad = get_grad, div = get_div, curl = get_curl, lapl = get_lapl):
+    def __init__(self, N, delta_x = np.array([1, 1, 1]), x0 = np.array([0, 0, 0]), c = 1, mu0 = 1, approx_n = 0.1, approx_k = 1, init = True, init_copy = False, J = default_J, grad = get_grad, div = get_div, curl = get_curl, lapl = get_lapl, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
         # Test for type errors
         if not isinstance(N, np.ndarray):
             raise Exception("N has wrong type, it is " + str(type(N)) + " but it should be " + str(np.ndarray))
@@ -542,28 +631,28 @@ class sim:
             raise Exception("J has wrong type, it it is " + str(type(self.__J)) + " but it should be a function")
         
         # Get vector calculus functions
-        self.__grad = grad(self.__dx, self.__N)
+        self.__grad = grad(self.__dx, self.__N, boundaries = boundaries)
             
         if not callable(self.__grad):
             raise Exception("grad has wrong type, it is " + str(type(self.__grad)) + " but it should be a function")
 
-        self.__div = div(self.__dx, self.__N)
+        self.__div = div(self.__dx, self.__N, boundaries = boundaries)
             
         if not callable(self.__div):
             raise Exception("div has wrong type, it is " + str(type(self.__div)) + " but it should be a function")
 
-        self.__curl = curl(self.__dx, self.__N)
+        self.__curl = curl(self.__dx, self.__N, boundaries = boundaries)
             
         if not callable(self.__curl):
             raise Exception("curl has wrong type, it is " + str(type(self.__curl)) + " but it should be a function")
                 
-        self.__lapl = lapl(self.__dx, self.__N)
+        self.__lapl = lapl(self.__dx, self.__N, boundaries = boundaries)
                 
         if not isinstance(self.__lapl, sparse.csr_matrix):
             raise Exception("lapl has wrong type, is " + str(type(self.__lapl)) + " but it should be " + str(sparse.csr_matrix))
             
         # Update the value for k
-        self.__k /= -self.__lapl[0, 0]
+        self.__k /= (2 * np.sum(1 / self.__dx ** 2))
 
     # Get electric potential
     def get_V(self):
