@@ -5,9 +5,9 @@ import EMStatics as EM
 plt.close("all")
 
 Charge = 1
-Size = np.array([99, 99, 99], dtype = int)
-approx_n = 0.1
-exact = False
+Size = np.array([25, 25, 25], dtype = int)
+approx_n = 1
+exact = True
 x0 = np.array([-1, -1, -1], dtype = float)
 delta_x = np.array([2, 2, 2], dtype = float)
 

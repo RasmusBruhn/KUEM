@@ -279,7 +279,7 @@ def get_boundaries_open(N):
         # Go through each direction
         for Dir in range(2):
             # Calculate the position of the offdiagonal
-            OffPos = np.prod(N[:Coordinate])
+            #OffPos = np.prod(N[:Coordinate])
             
             # Create a tile
             Tile = np.zeros(np.prod(N[:Coordinate + 1]))
@@ -289,7 +289,7 @@ def get_boundaries_open(N):
             if (Dir == 0):
                 Tile[:np.prod(N[:Coordinate])] = 1
                 #OffTile[:np.prod(N[:Coordinate])] = -1
-                OffPos *= -1
+                #OffPos *= -1
                 
             else:
                 Tile[-np.prod(N[:Coordinate]):] = 1
