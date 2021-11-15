@@ -89,7 +89,7 @@ def sample_values(Field, Points, dx, N, x0):
     ShapeP = (3, 1) + Points.shape[1:]
     
     # Find the indices for the corners
-    CornerIndex = np.repeat(np.array((Points.reshape(ShapeP) - x0.reshape(ShapeX)) / dx.reshape(ShapeX), dtype = int), 8, axis = 1)
+    CornerIndex = np.repeat(np.array(np.floor((Points.reshape(ShapeP) - x0.reshape(ShapeX)) / dx.reshape(ShapeX)), dtype = int), 8, axis = 1)
 
     # Go through all of the coordinates
     for i in range(3):
@@ -101,6 +101,10 @@ def sample_values(Field, Points, dx, N, x0):
         for j in range(int(2 ** i)):
             # Add to the coordinates
             CornerIndex[i, int((j + 1 / 2) * 2 ** (3 - i)):int((j + 1) * 2 ** (3 - i))] += 1
+            
+    # Mod the values to be within the correct range
+    ShapeMod = (3,) + (1,) * (len(CornerIndex.shape) - 1)
+    CornerIndex = np.mod(CornerIndex, N.reshape(ShapeMod))
             
     # Get the vector index for each point
     CornerVectorIndex = get_vector_index(CornerIndex, N)
@@ -305,6 +309,32 @@ def get_boundaries_open(N):
             
     return Bounds
 
+def get_boundaries_periodic(N):
+    # Make list to save the boundaries
+    Bounds = np.empty((3, 2), dtype = sparse.csr_matrix)
+    
+    # Go through all 3 coordinates
+    for Coordinate in range(3):
+        for Dir in range(2):
+            # Create a tile
+            Tile = np.zeros(np.prod(N[:Coordinate + 1]))
+    
+            # Add the ones
+            if (Dir == 0):
+                Tile[:np.prod(N[:Coordinate])] = 1
+                
+            else:
+                Tile[-np.prod(N[:Coordinate]):] = 1
+            
+            # Create the diagonal
+            Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))[:-np.prod(N[:Coordinate]) * (N[Coordinate] - 1)]
+            
+            # Create the boundary
+            Bounds[Coordinate, Dir] = sparse.diags([Diag], [np.prod(N[:Coordinate]) * (N[Coordinate] - 1)], format = "csr")
+            
+    return Bounds
+
+
 
 # Creates matrices for differentiating once
 # dx, N and boundaries are default arguments
@@ -314,6 +344,9 @@ def get_ddx(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["c
     
     # Get the open boundaries
     OpenBounds = get_boundaries_open(N)
+    
+    # Get periodic boundaries
+    PeriodicBounds = get_boundaries_periodic(N)
     
     # Go through each coordinate
     for Coordinate in range(3):
@@ -330,15 +363,21 @@ def get_ddx(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["c
         ddx[Coordinate] = sparse.diags([Diag, -Diag], [np.prod(N[:Coordinate]), -np.prod(N[:Coordinate])], format = "csr")
         
         # Add the open boundaries
-        if boundaries[Coordinate][0] == "open":
-            ddx[Coordinate] -= OpenBounds[Coordinate, 0]
+        if boundaries[Coordinate] == "periodic":
+            ddx[Coordinate] -= PeriodicBounds[Coordinate, 0]
+
+        elif boundaries[Coordinate][0] == "open":
+            ddx[Coordinate] -= OpenBounds[Coordinate, 0]            
             
         elif isinstance(boundaries[Coordinate][0], sparse.csr_matrix):
             ddx[Coordinate] -= boundaries[Coordinate][0]
+           
+        if boundaries[Coordinate] == "periodic":
+            ddx[Coordinate] += PeriodicBounds[Coordinate, 1]
             
-        if boundaries[Coordinate][1] == "open":
+        elif boundaries[Coordinate][1] == "open":
             ddx[Coordinate] += OpenBounds[Coordinate, 0]
-            
+                       
         elif isinstance(boundaries[Coordinate][1], sparse.csr_matrix):
             ddx[Coordinate] += boundaries[Coordinate][1]
         
@@ -357,6 +396,9 @@ def get_ddx2(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["
     # Get the open boundaries
     OpenBounds = get_boundaries_open(N)
 
+    # Get periodic boundaries
+    PeriodicBounds = get_boundaries_periodic(N)
+
     # Go through each coordinate
     for Coordinate in range(3):
         # Create a tile
@@ -372,13 +414,19 @@ def get_ddx2(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["
         ddx2[Coordinate] = sparse.diags([-2 * np.ones(np.prod(N)), Diag, Diag], [0, np.prod(N[:Coordinate]), -np.prod(N[:Coordinate])], format = "csr")
 
         # Add open boundary conditions
-        if boundaries[Coordinate][0] == "open":
+        if boundaries[Coordinate] == "periodic":
+            ddx2[Coordinate] += PeriodicBounds[Coordinate, 0]
+
+        elif boundaries[Coordinate][0] == "open":
             ddx2[Coordinate] += OpenBounds[Coordinate, 0]
             
         elif isinstance(boundaries[Coordinate][0], sparse.csr_matrix):
             ddx2[Coordinate] += boundaries[Coordinate][0]
             
-        if boundaries[Coordinate][1] == "open":
+        if boundaries[Coordinate] == "periodic":
+            ddx2[Coordinate] += PeriodicBounds[Coordinate, 1]
+
+        elif boundaries[Coordinate][1] == "open":
             ddx2[Coordinate] += OpenBounds[Coordinate, 0]
 
         elif isinstance(boundaries[Coordinate][1], sparse.csr_matrix):
@@ -584,10 +632,17 @@ class sim:
         if not (isinstance(approx_k, int) or isinstance(approx_k, float)):
             raise Exception("approx_k has wrong dtype, it is " + str(type(approx_k)) + " but it should be " + str(int) + " or " + str(float))
         
+        # 0 if direction is periodic, 1 if not
+        self.__periodic = np.ones(3, dtype = int)
+        
+        for i in range(3):
+            if boundaries[i] == "periodic":
+                self.__periodic[i] = 0
+        
         # Store basic information
         self.__delta_x = np.array(delta_x.copy(), dtype = float)
         self.__N = np.array(N.copy(), dtype = int)
-        self.__dx = self.__delta_x / (self.__N + 1)
+        self.__dx = self.__delta_x / (self.__N - self.__periodic)
         self.__x0 = np.array(x0.copy(), dtype = float)
         self.__c = float(c)
         self.__mu0 = float(mu0)

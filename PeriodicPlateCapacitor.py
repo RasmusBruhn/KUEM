@@ -5,15 +5,15 @@ import EMStatics as EM
 plt.close("all")
 
 SurfaceCharge = 1
-Size = np.array([50, 50, 50], dtype = int)
-approx_n = 0.1
-exact = False
-x0 = np.array([-1, -1, -1], dtype = float)
+Size = np.array([1, 1, 100], dtype = int)
+approx_n = 10
+exact = True
+x0 = np.array([0, 0, -1], dtype = float)
 delta_x = np.array([0.1, 0.1, 2], dtype = float)
 
 # Create J function
-Length = 0.8
-d = 0.2
+Length = 1
+d = 0.3
 def J(dx, N, x0, c, mu0):
     Nx = np.arange(int(N[0] * (1 - Length) / 2), int(N[0] * (1 + Length) / 2))
     Ny = np.arange(int(N[1] * (1 - Length) / 2), int(N[1] * (1 + Length) / 2))
@@ -37,7 +37,7 @@ def J(dx, N, x0, c, mu0):
     return GetJ
 
 # Create simulation class
-Sim = EM.sim(Size, delta_x = delta_x, x0 = x0, approx_n = approx_n, approx_k = 1, J = J)
+Sim = EM.sim(Size, delta_x = delta_x, x0 = x0, approx_n = approx_n, approx_k = 1, J = J, boundaries = ["periodic", "periodic", ["closed", "closed"]])
 
 # Solve the system
 print("Solve time = %.2g s" %(Sim.solve(exact = exact, progress = 1)))
@@ -46,7 +46,7 @@ def scale(x):
     return np.log(x)
 
 # Get points to sample over
-Width = np.array([2, 2], dtype = float)
+Width = np.array([4, 2], dtype = float)
 Center = np.array([0, 0, 0], dtype = float)
 Points = EM.sample_points_plane(np.array([1, 0, 0], dtype = float), np.array([0, 0, 1], dtype = float), Center, Width, np.array([1000, 1000]))
 Values = Sim.sample_values(Sim.get_V(), Points)
