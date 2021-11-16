@@ -34,11 +34,53 @@ def get_vector_index(n, N):
     Factor = np.array([1, N[0], N[0] * N[1]]).reshape((3,) + (1,) * (len(n.shape) - 1))
     return np.array(np.sum(n * Factor, axis = 0), dtype = int)
 
-def to_vector():
-    pass
+# Turns a 3 dimensional array of numbers into the vector representation
+#
+# N is a default argument
+# Array:        The array to convert into a vector
+def to_vector(Array, N):
+    # Find the indices for each position
+    n0, n1, n2 = np.arange(N[0]), np.arange(N[1]), np.arange(N[2])
     
-def to_array():
-    pass
+    # Meshgrid together
+    m0, m1, m2 = np.meshgrid(n0, n1, n2, indexing = "ij")
+    
+    # append together
+    Shape = (1,) + m0.shape
+    n = np.append(m0.reshape(Shape), np.append(m1.reshape(Shape), m2.reshape(Shape), axis = 0), axis = 0)
+    
+    # Get the vector index
+    vn = get_vector_index(n, N)
+
+    # Create the vector
+    Vector = np.empty(np.prod(N))
+    Vector[vn] = Array[:]
+    
+    return Vector
+    
+# Turns a vector into the 3 dimensional array representation
+#
+# N is a default argument
+# Vector:       The vector to turn into a array
+def to_array(Vector, N):
+    # Find the indices for each position
+    n0, n1, n2 = np.arange(N[0]), np.arange(N[1]), np.arange(N[2])
+    
+    # Meshgrid together
+    m0, m1, m2 = np.meshgrid(n0, n1, n2, indexing = "ij")
+    
+    # append together
+    Shape = (1,) + m0.shape
+    n = np.append(m0.reshape(Shape), np.append(m1.reshape(Shape), m2.reshape(Shape), axis = 0), axis = 0)
+    
+    # Get the vector index
+    vn = get_vector_index(n, N)
+
+    # Create the array
+    Array = np.empty(tuple(N))
+    Array[:] = Vector[vn]
+    
+    return Array
 
 # Calculates the total weights for each of the 8 corners in the interpolation
 # Returns an array with the shape (8,) + W.shape[1:] containing the weights for the 8 corners
@@ -288,6 +330,7 @@ def sample_points_line(x1, x2, Resolution):
 
 # Creates boundary matrices, this is matrices with ones at the diagonal at points at each of the 6 boundaries
 # the first dimension is the coordinate and the second dimension is the direction (positive or negative)
+#
 # N is a default argument
 def get_boundaries_open(N):
     # Make list to save the boundaries (diagonals at the points at boundary)
@@ -305,7 +348,7 @@ def get_boundaries_open(N):
             #OffTile = np.zeros(np.prod(N[:Coordinate + 1]))
             
             # Add the ones
-            if (Dir == 0):
+            if Dir == 0:
                 Tile[:np.prod(N[:Coordinate])] = 1
                 #OffTile[:np.prod(N[:Coordinate])] = -1
                 #OffPos *= -1
@@ -316,7 +359,13 @@ def get_boundaries_open(N):
                 
             # Create the diagonal
             Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))
-            #OffDiag = np.tile(OffTile, np.prod(N[Coordinate + 1:]))[:-np.prod(N[:Coordinate])]
+            #OffDiag = np.tile(OffTile, np.prod(N[Coordinate + 1:]))
+            
+            #if Dir == 0:
+            #    OffDiag = OffDiag[:-np.prod(N[:Coordinate])]
+                
+            #else:
+            #    OffDiag = OffDiag[np.prod(N[:Coordinate]):]
             
             # Create the boundary
             #Bounds[Coordinate, Dir] = sparse.diags([Diag, OffDiag], [0, OffPos], format = "csr")
@@ -324,6 +373,10 @@ def get_boundaries_open(N):
             
     return Bounds
 
+# Creates boundary matrices for the periodic boundary conditions
+# the first dimension is the coordinate and the second dimension is the direction (positive or negative)
+#
+# N is a default argument
 def get_boundaries_periodic(N):
     # Make list to save the boundaries
     Bounds = np.empty((3, 2), dtype = sparse.csr_matrix)
@@ -331,36 +384,54 @@ def get_boundaries_periodic(N):
     # Go through all 3 coordinates
     for Coordinate in range(3):
         for Dir in range(2):
+            # Calculate the position of the offdiagonal
+            OffPos = np.prod(N[:Coordinate]) * (N[Coordinate] - 1)
+                          
+            if Dir == 1:
+                OffPos *= -1
+            
             # Create a tile
             Tile = np.zeros(np.prod(N[:Coordinate + 1]))
             
             # Add the ones
-            if Dir == 0:
-                Tile[:np.prod(N[:Coordinate])] = 1
-                
-            else:
-                Tile[-np.prod(N[:Coordinate]):] = 1
+            Tile[:np.prod(N[:Coordinate])] = 1
             
             # Create the diagonal
             Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))
             
             # Remove the part outside the matrix
-            if Dir == 0:
-                OffPos = np.prod(N[:Coordinate]) * (N[Coordinate] - 1)
-                Diag = Diag[:Tile.shape[0] * np.prod(N[Coordinate + 1:]) - np.prod(N[:Coordinate]) * (N[Coordinate] - 1)]
-
-            else:
-                OffPos = -np.prod(N[:Coordinate]) * (N[Coordinate] - 1)
-                Diag = Diag[np.prod(N[:Coordinate]) * (N[Coordinate] - 1):]
+            Diag = Diag[:Tile.shape[0] * np.prod(N[Coordinate + 1:]) - np.prod(N[:Coordinate]) * (N[Coordinate] - 1)]
 
             # Create the boundary
             Bounds[Coordinate, Dir] = sparse.diags([Diag], [OffPos], format = "csr")
             
     return Bounds
 
-
+# Creates a custom boundary matrix for some coordinate and direction, each point can either be open or closed
+#
+# N is a default argument
+# OpenPos:          A vector with either 0 or 1 for each position in the grid, 0 for closed or not on boundary and 1 for open
+# Coordinate:       The coordinate along which the boundary is (1, 2 or 3 for x, y or z)
+# Dir:              0 for the negative boundary and 1 for the positive boundary
+def get_boundaries_custom(N, OpenPos, Coordinate, Dir):
+    # Find the off diagonal position
+    OffPos = np.prod(N[:Coordinate])
+    
+    # Shorten OpenPos
+    if Dir == 0:
+        Diag = OpenPos[:-OffPos]
+        
+    else:
+        Diag = OpenPos[OffPos:]
+        OffPos *= -1
+        
+    # Create the matrix
+    return sparse.diags([Diag], [OffPos], format = "csr")
+        
+    
 
 # Creates matrices for differentiating once
+#
 # dx, N and boundaries are default arguments
 def get_ddx(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
     # Make a list for (ddx, ddy, ddz)
@@ -412,6 +483,7 @@ def get_ddx(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["c
 
     
 # Creates matrices for differentiating twice, 
+#
 # dx, N and boundaries are default arguments
 def get_ddx2(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
     # Make a list for (ddx, ddy, ddz)
@@ -462,6 +534,7 @@ def get_ddx2(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["
     return ddx2
 
 # Creates a function to take the gradient in cartesian coordinates
+#
 # dx, N and boundaries are default arguments
 def get_grad(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
     # Get the diff matrices
@@ -483,6 +556,7 @@ def get_grad(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["
     return calcGrad
 
 # Creates a function to take the divergence in cartesian coordinates
+#
 # dx, N and boundaries are default arguments
 def get_div(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
     # Get the diff matrices
@@ -497,6 +571,7 @@ def get_div(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["c
     return calcDiv
 
 # Creates a function to take the curl in cartesian coordinates
+#
 # dx, N and boundaries are default arguments
 def get_curl(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
     # Get diff matrices
@@ -517,6 +592,7 @@ def get_curl(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["
     return calcCurl
 
 # Creates the laplacian matrix in cartesian coordinates
+#
 # dx, N and boundaries are default arguments
 def get_lapl(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
     # Get ddx2
