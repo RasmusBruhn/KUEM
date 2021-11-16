@@ -5,31 +5,28 @@ import EMStatics as EM
 plt.close("all")
 
 Charge = 1
-Size = np.array([50, 50, 50], dtype = int)
-approx_n = 1
+Size = np.array([49, 49, 49], dtype = int)
+approx_n = 0.1
 exact = False
 x0 = np.array([-1, -1, -1], dtype = float)
 delta_x = np.array([2, 2, 2], dtype = float)
 
 # Create J function
 def J(dx, N, x0, c, mu0):
-    Pos = np.array(N / 2, dtype = int)
-    RealPos = EM.get_vector_index(Pos, N)
-    J = np.zeros((np.prod(N), 4))
-    J[RealPos, 0] = Charge / np.prod(dx)
+    J_Array = np.zeros(tuple(N) + (4,))
+    J_Array[int(N[0] / 2), int(N[1] / 2), int(N[2] / 2), 0] = Charge / np.prod(dx)
+    J = EM.to_vector(J_Array, N)
 
-    def GetJ():
+    def GetJ(t):
         return J
     
     return GetJ
 
 # Create simulation class
 Sim = EM.sim(Size, delta_x = delta_x, x0 = x0, approx_n = approx_n, J = J)
-Sim2 = EM.sim(Size, delta_x = delta_x, x0 = x0, approx_n = approx_n, J = J, boundaries = [["open", "open"], ["open", "open"], ["open", "open"]])
 
 # Solve the system
 print("Solve time = %.2g s" %(Sim.solve(exact = exact, progress = 1)))
-print("Solve time = %.2g s" %(Sim2.solve(exact = exact, progress = 1)))
 
 
 def scale(x):
@@ -49,12 +46,10 @@ Start = np.array([0, 0, 0], dtype = float)
 End = np.array([1, 0, 0], dtype = float)
 Points2 = EM.sample_points_line(Start, End, 1000)
 Values2 = Sim.sample_values(Sim.get_V(), Points2)
-Values22 = Sim.sample_values(Sim2.get_V(), Points2)
 
 # Plot V along x-axis
 _, ax2, _ = EM.plot_1D(Values2, extent = [Start[0], End[0]], label = "Sim")
-EM.plot_1D(Values22, extent = [Start[0], End[0]], ax = ax2, label = "Sim open")
-ax2.plot(np.linspace(0.01, 1, 1000), 1 / (4 * np.pi * np.linspace(0.01, 1, 1000)), "-", label = "Theory")
+ax2.plot(np.linspace(0.01, 1, 1000), 1 / (4 * np.pi * np.linspace(0.01, 1, 1000)) - 1 / (4 * np.pi), "-", label = "Theory")
 ax2.set_xlabel("Distance")
 ax2.set_ylabel("Potential")
 ax2.set_title("Potential of a point charge as a function of distance")

@@ -14,7 +14,7 @@ import time as time
 # mu0:          The permeability of free space
 # boundaries:   The boundary conditions, it is a 3 long list, one element for each coordinate
 #               each element can either be "periodic" or a 2 long list with the boundary conditions
-#               in the negative and the positive direction. These can either be "open", "closed" or a matrix for a custom boundary condition
+#               in the negative and the positive direction. These can either be "open", "flat", "closed" or a matrix for a custom boundary condition
 
 # Default vector arguments:
 # grad:         Function to calculate gradient of scalar field
@@ -33,6 +33,7 @@ import time as time
 def get_vector_index(n, N):
     Factor = np.array([1, N[0], N[0] * N[1]]).reshape((3,) + (1,) * (len(n.shape) - 1))
     return np.array(np.sum(n * Factor, axis = 0), dtype = int)
+
 
 # Turns a 3 dimensional array of numbers into the vector representation
 #
@@ -53,11 +54,13 @@ def to_vector(Array, N):
     vn = get_vector_index(n, N)
 
     # Create the vector
-    Vector = np.empty(np.prod(N))
+    Vector = np.empty((np.prod(N),) + Array.shape[3:])
+
     Vector[vn] = Array[:]
     
     return Vector
     
+
 # Turns a vector into the 3 dimensional array representation
 #
 # N is a default argument
@@ -77,10 +80,11 @@ def to_array(Vector, N):
     vn = get_vector_index(n, N)
 
     # Create the array
-    Array = np.empty(tuple(N))
+    Array = np.empty(tuple(N) + Vector.shape[1:])
     Array[:] = Vector[vn]
     
     return Array
+
 
 # Calculates the total weights for each of the 8 corners in the interpolation
 # Returns an array with the shape (8,) + W.shape[1:] containing the weights for the 8 corners
@@ -110,6 +114,7 @@ def total_weight(W):
     # Return the result
     return Result
 
+
 # A function to interpolate the values of 8 corners in the middle 
 #
 # W:        The weights for each point for the different directions,
@@ -124,6 +129,7 @@ def interpolation(W, Values):
 
     # Calculate the lerp
     return np.sum(TotalW * Values, axis = 0)
+
 
 # Samples values at specific points from a field, interpolate to get smooth values from field
 # Return the values in the shape Points.shape[1:]
@@ -188,12 +194,14 @@ def sample_vectors(Field, Points, x_hat, y_hat, dx, N, x0):
 
     return vx, vy
 
+
 # A default scale used in the scalar plotter
 # Returns a numpy array filled with the values in x scaled
 # 
 # x:    This is a numpy array of floating points
 def default_scalar_scale(x):
     return x
+
 
 # Plot a scalar field
 #
@@ -224,6 +232,7 @@ def plot_scalar(Values, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig
     
     return fig, ax, Plot
 
+
 # Plot the values along a line in a scalar field
 #
 # Values:       The 1D array of values to plot
@@ -243,6 +252,7 @@ def plot_1D(Values, extent = [0, 1], scale = default_scalar_scale, fig = None, a
     Plot = ax.plot(np.linspace(extent[0], extent[1], len(Values)), Values, fmt, label = label)
     
     return fig, ax, Plot
+
 
 # Plot a vector field
 #
@@ -297,6 +307,7 @@ def plot_vector(vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig
     
     return fig, ax, Plot
 
+
 # Creates an array of points sampled from a plane spanned by x_hat and y_hat and centered on x_c
 # Returns the coordinates for all of the points in a 2D array form for imshow
 #
@@ -317,6 +328,7 @@ def sample_points_plane(x_hat, y_hat, x_c, Size, Resolution):
     # Calculate the real positions
     return x_c.reshape((3, 1, 1)) + x_hat.reshape((3, 1, 1)) * x.reshape((1, -1, 1)) + y_hat.reshape((3, 1, 1)) * y.reshape((1, 1, -1))
     
+
 # Creates an array of points sampled from a line between x1 and x2
 # Returns the coordinates for all points along a line to sample field values for in 1D plotting
 #
@@ -328,8 +340,39 @@ def sample_points_line(x1, x2, Resolution):
     return x1.reshape((3, 1)) + (x2.reshape((3, 1)) - x1.reshape((3, 1))) * np.linspace(0, 1, Resolution).reshape((1, -1))
     
 
-# Creates boundary matrices, this is matrices with ones at the diagonal at points at each of the 6 boundaries
-# the first dimension is the coordinate and the second dimension is the direction (positive or negative)
+# Creates a function which returns a current/charge density which is 0 everywhere
+#
+# dx, N, x0, c, mu0 are default arguments
+def default_J(dx, N, x0, c, mu0):
+    # Create current which is 0 everywhere
+    J = np.zeros((np.prod(N), 4))
+    
+    # Create function to return J
+    # t:        The time
+    def GetJ(t):
+        return J
+    
+    # Return the function
+    return GetJ
+
+
+# Creates a function which returns the closed boundary conditions for each boundary
+#
+# dx, N, x0, c, mu0 are default arguments
+def default_C(dx, N, x0, c, mu0):
+    # Create a closed boundary condition which is 0 everywhere, the first axis is the coordinate
+    # The second axis is the direction of the boundary
+    C = np.zeros((3, 2, np.prod(N), 4), dtype = float)
+       
+    # Create the function to return the conditions
+    # t:        The time
+    def GetC(t):
+        return C
+    
+    return GetC
+
+
+# Creates open boundary matrices the first dimension is the coordinate and the second dimension is the direction (positive or negative)
 #
 # N is a default argument
 def get_boundaries_open(N):
@@ -341,37 +384,68 @@ def get_boundaries_open(N):
         # Go through each direction
         for Dir in range(2):
             # Calculate the position of the offdiagonal
-            #OffPos = np.prod(N[:Coordinate])
+            OffPos = np.prod(N[:Coordinate])
             
             # Create a tile
             Tile = np.zeros(np.prod(N[:Coordinate + 1]))
-            #OffTile = np.zeros(np.prod(N[:Coordinate + 1]))
+            OffTile = np.zeros(np.prod(N[:Coordinate + 1]))
             
             # Add the ones
             if Dir == 0:
                 Tile[:np.prod(N[:Coordinate])] = 1
-                #OffTile[:np.prod(N[:Coordinate])] = -1
-                #OffPos *= -1
+                OffTile[:np.prod(N[:Coordinate])] = -1
+                OffPos *= -1
                 
             else:
                 Tile[-np.prod(N[:Coordinate]):] = 1
-                #OffTile[-np.prod(N[:Coordinate]):] = -1
+                OffTile[-np.prod(N[:Coordinate]):] = -1
                 
             # Create the diagonal
             Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))
-            #OffDiag = np.tile(OffTile, np.prod(N[Coordinate + 1:]))
+            OffDiag = np.tile(OffTile, np.prod(N[Coordinate + 1:]))
             
-            #if Dir == 0:
-            #    OffDiag = OffDiag[:-np.prod(N[:Coordinate])]
+            if Dir == 0:
+                OffDiag = OffDiag[:-np.prod(N[:Coordinate])]
                 
-            #else:
-            #    OffDiag = OffDiag[np.prod(N[:Coordinate]):]
+            else:
+                OffDiag = OffDiag[np.prod(N[:Coordinate]):]
+        
+            # Create the boundary
+            Bounds[Coordinate, Dir] = sparse.diags([Diag, OffDiag], [0, OffPos], format = "csr")
+            
+    return Bounds
+
+
+# Creates boundary matrices, this is matrices with ones at the diagonal at points at each of the 6 boundaries
+# the first dimension is the coordinate and the second dimension is the direction (positive or negative)
+#
+# N is a default argument
+def get_boundaries_flat(N):
+    # Make list to save the boundaries (diagonals at the points at boundary)
+    Bounds = np.empty((3, 2), dtype = sparse.csr_matrix)
+    
+    # Go through all 3 coordinates
+    for Coordinate in range(3):
+        # Go through each direction
+        for Dir in range(2):
+            # Create a tile
+            Tile = np.zeros(np.prod(N[:Coordinate + 1]))
+            
+            # Add the ones
+            if Dir == 0:
+                Tile[:np.prod(N[:Coordinate])] = 1
+                
+            else:
+                Tile[-np.prod(N[:Coordinate]):] = 1
+                
+            # Create the diagonal
+            Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))
             
             # Create the boundary
-            #Bounds[Coordinate, Dir] = sparse.diags([Diag, OffDiag], [0, OffPos], format = "csr")
             Bounds[Coordinate, Dir] = sparse.diags([Diag], [0], format = "csr")
             
     return Bounds
+
 
 # Creates boundary matrices for the periodic boundary conditions
 # the first dimension is the coordinate and the second dimension is the direction (positive or negative)
@@ -407,6 +481,7 @@ def get_boundaries_periodic(N):
             
     return Bounds
 
+
 # Creates a custom boundary matrix for some coordinate and direction, each point can either be open or closed
 #
 # N is a default argument
@@ -427,7 +502,6 @@ def get_boundaries_custom(N, OpenPos, Coordinate, Dir):
         
     # Create the matrix
     return sparse.diags([Diag], [OffPos], format = "csr")
-        
     
 
 # Creates matrices for differentiating once
@@ -439,6 +513,9 @@ def get_ddx(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["c
     
     # Get the open boundaries
     OpenBounds = get_boundaries_open(N)
+    
+    # Get the flat boundaries
+    FlatBounds = get_boundaries_flat(N)
     
     # Get periodic boundaries
     PeriodicBounds = get_boundaries_periodic(N)
@@ -461,21 +538,27 @@ def get_ddx(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["c
         if boundaries[Coordinate] == "periodic":
             ddx[Coordinate] -= PeriodicBounds[Coordinate, 0]
 
-        elif boundaries[Coordinate][0] == "open":
-            ddx[Coordinate] -= OpenBounds[Coordinate, 0]            
-            
         elif isinstance(boundaries[Coordinate][0], sparse.csr_matrix):
             ddx[Coordinate] -= boundaries[Coordinate][0]
-           
+
+        elif boundaries[Coordinate][0] == "open":
+            ddx[Coordinate] -= OpenBounds[Coordinate, 0]            
+   
+        elif boundaries[Coordinate][0] == "flat":
+            ddx[Coordinate] -= FlatBounds[Coordinate, 0]            
+                    
         if boundaries[Coordinate] == "periodic":
             ddx[Coordinate] += PeriodicBounds[Coordinate, 1]
+
+        elif isinstance(boundaries[Coordinate][1], sparse.csr_matrix):
+            ddx[Coordinate] += boundaries[Coordinate][1]
             
         elif boundaries[Coordinate][1] == "open":
             ddx[Coordinate] += OpenBounds[Coordinate, 1]
-                       
-        elif isinstance(boundaries[Coordinate][1], sparse.csr_matrix):
-            ddx[Coordinate] += boundaries[Coordinate][1]
-        
+
+        elif boundaries[Coordinate][1] == "flat":
+            ddx[Coordinate] += FlatBounds[Coordinate, 1]
+                               
         # Correct the value
         ddx[Coordinate] /= (2 * dx[Coordinate])
 
@@ -491,6 +574,9 @@ def get_ddx2(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["
 
     # Get the open boundaries
     OpenBounds = get_boundaries_open(N)
+
+    # Get the flat boundaries
+    FlatBounds = get_boundaries_flat(N)
 
     # Get periodic boundaries
     PeriodicBounds = get_boundaries_periodic(N)
@@ -513,25 +599,32 @@ def get_ddx2(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["
         if boundaries[Coordinate] == "periodic":
             ddx2[Coordinate] += PeriodicBounds[Coordinate, 0]
 
-        elif boundaries[Coordinate][0] == "open":
-            ddx2[Coordinate] += OpenBounds[Coordinate, 0]
-            
         elif isinstance(boundaries[Coordinate][0], sparse.csr_matrix):
             ddx2[Coordinate] += boundaries[Coordinate][0]
-            
+
+        elif boundaries[Coordinate][0] == "open":
+            ddx2[Coordinate] += OpenBounds[Coordinate, 0]
+      
+        elif boundaries[Coordinate][0] == "flat":
+            ddx2[Coordinate] += FlatBounds[Coordinate, 0]
+                  
         if boundaries[Coordinate] == "periodic":
             ddx2[Coordinate] += PeriodicBounds[Coordinate, 1]
+
+        elif isinstance(boundaries[Coordinate][1], sparse.csr_matrix):
+            ddx2[Coordinate] += boundaries[Coordinate][1]
 
         elif boundaries[Coordinate][1] == "open":
             ddx2[Coordinate] += OpenBounds[Coordinate, 1]
 
-        elif isinstance(boundaries[Coordinate][1], sparse.csr_matrix):
-            ddx2[Coordinate] += boundaries[Coordinate][1]
+        elif boundaries[Coordinate][1] == "flat":
+            ddx2[Coordinate] += FlatBounds[Coordinate, 1]
 
         # Correct the value
         ddx2[Coordinate] /= dx[Coordinate] ** 2
 
     return ddx2
+
 
 # Creates a function to take the gradient in cartesian coordinates
 #
@@ -539,21 +632,23 @@ def get_ddx2(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["
 def get_grad(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
     # Get the diff matrices
     ddx = get_ddx(dx, N, boundaries = boundaries)
-    
+        
     # Calculate the gradient
-    # Scalar: A scalar field of shape (N1 * N2 * N3)
-    def calcGrad(Scalar):
+    # Scalar:   A scalar field of shape (N1 * N2 * N3)
+    # C:        The closed boundary conditions for some time
+    def calcGrad(Scalar, C):
         # Create empty vector field
         Result = np.empty((np.prod(N), 3))
         
         # Calculate result
         for i in range(3):
-            Result[:, i] = ddx[i].dot(Scalar)
+            Result[:, i] = ddx[i].dot(Scalar) + 1 / (2 * dx[i]) * (C[i, 1] - C[i, 0])
         
         # Return result
         return Result
     
     return calcGrad
+
 
 # Creates a function to take the divergence in cartesian coordinates
 #
@@ -563,12 +658,14 @@ def get_div(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["c
     ddx = get_ddx(dx, N, boundaries = boundaries)
     
     # Calculate the divergence
-    # Vector: A vector field to take the divergence of
-    def calcDiv(Vector):
+    # Vector:   A vector field to take the divergence of
+    # C:        The closed boundary conditions for some time
+    def calcDiv(Vector, C):
         # Calculate result
-        return ddx[0].dot(Vector[:, 0]) + ddx[1].dot(Vector[:, 1]) + ddx[2].dot(Vector[:, 2])
+        return ddx[0].dot(Vector[:, 0]) + 1 / (2 * dx[0]) * (C[0, 1] - C[0, 0]) + ddx[1].dot(Vector[:, 1]) + 1 / (2 * dx[1]) * (C[1, 1] - C[1, 0]) + ddx[2].dot(Vector[:, 2]) + 1 / (2 * dx[2]) * (C[2, 1] - C[2, 0])
     
     return calcDiv
+
 
 # Creates a function to take the curl in cartesian coordinates
 #
@@ -578,18 +675,20 @@ def get_curl(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["
     ddx = get_ddx(dx, N, boundaries = boundaries)
     
     # Calculate the curl
-    # Vector: A vector fied to take the curl of
-    def calcCurl(Vector):
+    # Vector:   A vector fied to take the curl of
+    # C:        The closed boundary conditions for some time
+    def calcCurl(Vector, C):
         # Create result array
         Result = np.empty((np.prod(N), 3))
-        
+
         # Calculate curl
         for i in range(3):
-            Result[:, i] = ddx[(i + 1) % 3].dot(Vector[:, (i + 2) % 3]) - ddx[(i + 2) % 3].dot(Vector[:, (i + 1) % 3])
+            Result[:, i] = ddx[(i + 1) % 3].dot(Vector[:, (i + 2) % 3]) + 1 / (2 * dx[(i + 1) % 3]) * (C[(i + 1) % 3, 1, :, (i + 2) % 3] - C[(i + 1) % 3, 0, :, (i + 2) % 3]) - ddx[(i + 2) % 3].dot(Vector[:, (i + 1) % 3]) - 1 / (2 * dx[(i + 2) % 3]) * (C[(i + 2) % 3, 1, :, (i + 1) % 3] - C[(i + 2) % 3, 0, :, (i + 1) % 3])
             
         return Result
     
     return calcCurl
+
 
 # Creates the laplacian matrix in cartesian coordinates
 #
@@ -601,66 +700,80 @@ def get_lapl(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["
     # Create laplacian
     return np.sum(ddx2)
 
+
 # Finds the E-field
 #
 # V:            The electric potential: A[:, 0] * c
 # grad:         Function to calculate gradient
-def calc_E(V, grad):
-    return -grad(V)
+# C:            The closed boundary conditions for some time
+def calc_E(V, grad, C):
+    return -grad(V, C)
+
 
 # Finds the B-field
 #
 # A:            The vector potential: A[:, 1:]
 # curl:         Function to calculate curl
-def calc_B(A, curl):
-    return curl(A)
+# C:            The closed boundary conditions for some time
+def calc_B(A, curl, C):
+    return curl(A, C)
+
 
 # Finds the Poynting vector field
 #
+# mu0 is a default argument
 # E:            The electric field
 # B:            The magnetic field
-# And default vector arguments
-def calc_S(E, B, mu0 = 1):
+def calc_S(E, B, mu0):
     return np.cross(E, B) / mu0
 
-# Creates a function which returns a current/charge density which is 0 everywhere
-# Uses default arguments
-def default_J(dx, N, x0, c, mu0):
-    # Create current which is 0 everywhere
-    J = np.zeros((np.prod(N), 4))
-    
-    # Create function to return J
-    # t: The time
-    def GetJ():
-        return J
-    
-    # Return the function
-    return GetJ
+# Finds the energy density
+#
+# mu0 and c are default arguments
+# E:            The electric field
+# B:            The magnetic field
+def calc_u(E, B, mu0, c):
+    return 1 / (2 * mu0) * (np.sum(E ** 2, axis = -1) / c ** 2 + np.sum(B ** 2, axis = -1))
 
 # Solves non-responsive EM-statics exactly
 #
+# mu0 and dx are default arguments
 # J:            The current/charge density
 # Laplacian:    The laplacian matrix
-# mu0:          Value for mu0
-def solve_exact(J, laplacian, mu0):
-    return slinalg.spsolve(laplacian, -mu0 * J)
+# C:            The closed boundary conditions for some time
+def solve_exact(J, laplacian, C, mu0, dx):
+    # Figure out what the laplacian equals
+    b = -mu0 * J
+    
+    for Coordinate in range(3):
+        b -= 1 / dx[Coordinate] ** 2 * (C[Coordinate, 0] + C[Coordinate, 1])
+    
+    return slinalg.spsolve(laplacian, b)
+
 
 # Solves non-responsive EM-statics approximately
 #
+# mu0 and dx are default arguments
 # J:            The current/charge density
 # Laplacian:    The laplacian matrix
-# mu0:          Value for mu0
+# C:            The closed boundary conditions for some time
 # A0:           The starting guess for the potential
 # n:            The number of iterations for the approximation
 # k:            The approximation parameter to make sure it does not diverge
 # progress:     How to show how much time is remaining, False if it should be disabled
 #               a number to show time remaining with a period >= progress
-def solve_approx(J, Laplacian, mu0, A0, n, k, progress = False):
+def solve_approx(J, Laplacian, C, mu0, dx, A0, n, k, progress = False):
     # Setup the starting guess
     A = A0
     
     # Get the evolution matrix
     Matrix = sparse.identity(J.shape[0], format = "csr") + k * Laplacian
+    
+    # Get the vector to add
+    b = k * mu0 * J
+    
+    for Coordinate in range(3):
+        b += k / dx[Coordinate] ** 2 * (C[Coordinate, 0] + C[Coordinate, 1])
     
     # Setup time for writing time remaining
     Time0 = time.time()
@@ -668,7 +781,7 @@ def solve_approx(J, Laplacian, mu0, A0, n, k, progress = False):
     
     for i in range(n):
         # Evolve one step
-        A = Matrix.dot(A) + mu0 * k * J
+        A = Matrix.dot(A) + b
         
         # Write the time remaining
         Time2 = time.time()
@@ -677,6 +790,7 @@ def solve_approx(J, Laplacian, mu0, A0, n, k, progress = False):
             Time1 = Time2
         
     return A
+
 
 # The simulation class, create this class to define your simulation,
 # Then use it's methods to run the simulation and diagnistics/plotting
@@ -695,12 +809,14 @@ def solve_approx(J, Laplacian, mu0, A0, n, k, progress = False):
 #               the array, if false then it will use and alter the original array
 # J:            The current and charge distribution, must be a function with default
 #               arguments which returns a function to give the current and charge densit at any time
+# C:            The closed boundary conditions, must be a function of default arguments
+#               which returns a function of time to give the boundaries at that time
 # grad:         A function to return a function to calculate the gradient in the coordinate system used
 # div:          A function to return a function to calculate the divergence in the coordinate system used
 # curl:         A function to return a function to calculate the curl in the coordinate system used
 # lapl:    A function to calculate the laplacian in the coordinate system used
 class sim:
-    def __init__(self, N, delta_x = np.array([1, 1, 1]), x0 = np.array([0, 0, 0]), c = 1, mu0 = 1, approx_n = 0.1, approx_k = 1, init = True, init_copy = False, J = default_J, grad = get_grad, div = get_div, curl = get_curl, lapl = get_lapl, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
+    def __init__(self, N, delta_x = np.array([1, 1, 1]), x0 = np.array([0, 0, 0]), c = 1, mu0 = 1, approx_n = 0.1, approx_k = 1, init = True, init_copy = False, J = default_J, C = default_C, grad = get_grad, div = get_div, curl = get_curl, lapl = get_lapl, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
         # Test for type errors
         if not isinstance(N, np.ndarray):
             raise Exception("N has wrong type, it is " + str(type(N)) + " but it should be " + str(np.ndarray))
@@ -749,6 +865,7 @@ class sim:
         self.__V = np.prod(self.__N)
         self.__n = int(approx_n * np.sum(self.__N ** 2))
         self.__k = float(approx_k)
+        self.__t = 0
         
         # Create starting condition for potential
         # Initialize to 0
@@ -783,7 +900,13 @@ class sim:
         self.__J = J(self.__dx, self.__N, self.__x0, self.__c, self.__mu0)
         
         if not callable(self.__J):
-            raise Exception("J has wrong type, it it is " + str(type(self.__J)) + " but it should be a function")
+            raise Exception("J has wrong type, it is " + str(type(self.__J)) + " but it should be a function")
+        
+        # Get the closed boundary conditions
+        self.__C = C(self.__dx, self.__N, self.__x0, self.__c, self.__mu0)
+        
+        if not callable(self.__C):
+            raise Exception("C has wrong type, it is " + str(type(self.__C)) + " but it should be a function")
         
         # Get vector calculus functions
         self.__grad = grad(self.__dx, self.__N, boundaries = boundaries)
@@ -819,23 +942,31 @@ class sim:
     
     # Get E-field
     def get_E(self):
-        return calc_E(self.__A[:, 0] * self.__c, self.__grad)
+        return calc_E(self.__A[:, 0] * self.__c, self.__grad, self.__C(self.__t)[:, :, :, 0])
     
     # Get the B-field
     def get_B(self):
-        return calc_B(self.__A[:, 1:], self.__curl)
+        return calc_B(self.__A[:, 1:], self.__curl, self.__C(self.__t)[:, :, :, 1:])
     
     # Get the Poynting vector field
     def get_S(self):
         return calc_S(self.get_E(), self.get_B(), self.__mu0)
 
+    # Get the energy density
+    def get_u(self):
+        return calc_u(self.get_E(), self.get_B(), self.__mu0, self.__c)
+
     # Get the charge density
+    #
+    # t:        The time
     def get_Rho(self):
-        return self.__J()[:, 0] / self.__c
+        return self.__J(self.__t)[:, 0] / self.__c
     
     # Get the current density
+    #
+    # t:        The time
     def get_J(self):
-        return self.__J()[:, 1:]
+        return self.__J(self.__t)[:, 1:]
 
     # Finds the electrostatics solution
     # Returns the time it took
@@ -847,11 +978,11 @@ class sim:
         Time1 = time.time()
         # Do it exact
         if exact is True:
-            self.__A = solve_exact(self.__J(), self.__lapl, self.__mu0)
+            self.__A = solve_exact(self.__J(self.__t), self.__lapl, self.__C(self.__t), self.__mu0, self.__dx)
             
         # Do it approximatly
         else:
-            self.__A = solve_approx(self.__J(), self.__lapl, self.__mu0, self.__A, self.__n, self.__k, progress = progress)
+            self.__A = solve_approx(self.__J(self.__t), self.__lapl, self.__C(self.__t), self.__mu0, self.__dx, self.__A, self.__n, self.__k, progress = progress)
             
         Time2 = time.time()
         

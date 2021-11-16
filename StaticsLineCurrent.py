@@ -6,21 +6,18 @@ plt.close("all")
 
 Current = 1
 Size = np.array([49, 49, 49], dtype = int)
-approx_n = 100
+approx_n = 0.1
 exact = False
 x0 = np.array([-1, -1, -1], dtype = float)
 delta_x = np.array([2, 2, 2], dtype = float)
 
 # Create J function
 def J(dx, N, x0, c, mu0):
-    CenterIndex = np.repeat(np.array((N / 2), dtype = int).reshape((3, 1)), 2, 1)
-    CenterIndex[2, 0] = 0
-    CenterIndex[2, 1] = 1
-    RealCI = EM.get_vector_index(CenterIndex, N)
-    J = np.zeros((np.prod(N), 4))
-    J[RealCI[0]::(RealCI[1] - RealCI[0]), 3] = Current / (dx[0] * dx[1])
+    J_Array = np.zeros(tuple(N) + (4,))
+    J_Array[int(N[0] / 2), int(N[1] / 2), :, 3] = Current / (dx[0] * dx[1])
+    J = EM.to_vector(J_Array, N)
 
-    def GetJ():
+    def GetJ(t):
         return J
     
     return GetJ
