@@ -318,19 +318,28 @@ def get_boundaries_periodic(N):
         for Dir in range(2):
             # Create a tile
             Tile = np.zeros(np.prod(N[:Coordinate + 1]))
-    
+            
             # Add the ones
-            if (Dir == 0):
+            if Dir == 0:
                 Tile[:np.prod(N[:Coordinate])] = 1
                 
             else:
                 Tile[-np.prod(N[:Coordinate]):] = 1
             
             # Create the diagonal
-            Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))[:-np.prod(N[:Coordinate]) * (N[Coordinate] - 1)]
+            Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))
             
+            # Remove the part outside the matrix
+            if Dir == 0:
+                OffPos = np.prod(N[:Coordinate]) * (N[Coordinate] - 1)
+                Diag = Diag[:Tile.shape[0] * np.prod(N[Coordinate + 1:]) - np.prod(N[:Coordinate]) * (N[Coordinate] - 1)]
+
+            else:
+                OffPos = -np.prod(N[:Coordinate]) * (N[Coordinate] - 1)
+                Diag = Diag[np.prod(N[:Coordinate]) * (N[Coordinate] - 1):]
+
             # Create the boundary
-            Bounds[Coordinate, Dir] = sparse.diags([Diag], [np.prod(N[:Coordinate]) * (N[Coordinate] - 1)], format = "csr")
+            Bounds[Coordinate, Dir] = sparse.diags([Diag], [OffPos], format = "csr")
             
     return Bounds
 
@@ -376,7 +385,7 @@ def get_ddx(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["c
             ddx[Coordinate] += PeriodicBounds[Coordinate, 1]
             
         elif boundaries[Coordinate][1] == "open":
-            ddx[Coordinate] += OpenBounds[Coordinate, 0]
+            ddx[Coordinate] += OpenBounds[Coordinate, 1]
                        
         elif isinstance(boundaries[Coordinate][1], sparse.csr_matrix):
             ddx[Coordinate] += boundaries[Coordinate][1]
@@ -427,7 +436,7 @@ def get_ddx2(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["
             ddx2[Coordinate] += PeriodicBounds[Coordinate, 1]
 
         elif boundaries[Coordinate][1] == "open":
-            ddx2[Coordinate] += OpenBounds[Coordinate, 0]
+            ddx2[Coordinate] += OpenBounds[Coordinate, 1]
 
         elif isinstance(boundaries[Coordinate][1], sparse.csr_matrix):
             ddx2[Coordinate] += boundaries[Coordinate][1]
@@ -708,7 +717,7 @@ class sim:
             
         # Update the value for k
         self.__k /= (2 * np.sum(1 / self.__dx ** 2))
-
+        
     # Get electric potential
     def get_V(self):
         return self.__A[:, 0] * self.__c

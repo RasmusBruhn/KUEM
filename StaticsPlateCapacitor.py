@@ -9,7 +9,7 @@ Size = np.array([50, 50, 50], dtype = int)
 approx_n = 0.1
 exact = False
 x0 = np.array([-1, -1, -1], dtype = float)
-delta_x = np.array([0.1, 0.1, 2], dtype = float)
+delta_x = np.array([2, 2, 2], dtype = float)
 
 # Create J function
 Length = 0.8
@@ -37,7 +37,7 @@ def J(dx, N, x0, c, mu0):
     return GetJ
 
 # Create simulation class
-Sim = EM.sim(Size, delta_x = delta_x, x0 = x0, approx_n = approx_n, approx_k = 1, J = J)
+Sim = EM.sim(Size, delta_x = delta_x, x0 = x0, approx_n = approx_n, approx_k = 1, J = J, boundaries = [["open", "open"], ["open", "open"], ["closed", "closed"]])
 
 # Solve the system
 print("Solve time = %.2g s" %(Sim.solve(exact = exact, progress = 1)))
