@@ -86,6 +86,6 @@ Points3 = EM.sample_points_plane(np.array([1, 0, 0], dtype = float), np.array([0
 vx3, vy3 = Sim.sample_vectors(Sim.get_E(), Points3, np.array([1, 0, 0], dtype = float), np.array([0, 0, 1], dtype = float))
 
 # Plot E in xy plane
-EM.plot_vector(vx3, vy3, extent = [Center[0] - Width[0] / 2, Center[0] + Width[0] / 2, Center[1] - Width[1] / 2, Center[1] + Width[1] / 2])
+EM.plot_vector(vx3, vy3, extent = [Center[0] - Width[0] / 2, Center[0] + Width[0] / 2, Center[1] - Width[1] / 2, Center[1] + Width[1] / 2], cutoff = 0.01)
 
 plt.show()

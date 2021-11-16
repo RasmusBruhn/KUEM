@@ -34,6 +34,12 @@ def get_vector_index(n, N):
     Factor = np.array([1, N[0], N[0] * N[1]]).reshape((3,) + (1,) * (len(n.shape) - 1))
     return np.array(np.sum(n * Factor, axis = 0), dtype = int)
 
+def to_vector():
+    pass
+    
+def to_array():
+    pass
+
 # Calculates the total weights for each of the 8 corners in the interpolation
 # Returns an array with the shape (8,) + W.shape[1:] containing the weights for the 8 corners
 # for each point. For (x,y,z)  the points are sorted as (-, -, -), (-, -, +), (-, +, -), (-, +, +),
@@ -210,14 +216,23 @@ def plot_1D(Values, extent = [0, 1], scale = default_scalar_scale, fig = None, a
 # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the vector lengths,
 #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
 #               values of the lengths
-def plot_vector(vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):  
+def plot_vector(vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None, cutoff = 0):  
     # Calculate the positions of the vectors
     x = np.linspace(extent[0], extent[1], vx.shape[0] + 1)[:-1]
     y = np.linspace(extent[2], extent[3], vy.shape[1] + 1)[:-1]
     X, Y = np.meshgrid(x, y, indexing = "ij")
     
     # Calculate length of vectors
-    vAbs = np.sqrt(vx ** 2 + vy ** 2)    
+    vAbs = np.sqrt(vx ** 2 + vy ** 2)
+
+    # Make cutoff
+    if clim is None:
+        MaxVal = np.max(vAbs)
+        
+    else:
+        MaxVal = clim[1]
+        
+    vAbs[vAbs < MaxVal * cutoff] = 0
 
     # Calculate clim
     if clim is None:
