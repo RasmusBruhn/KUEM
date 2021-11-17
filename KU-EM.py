@@ -797,6 +797,31 @@ def solve_exact(J, laplacian, C, mu0, dx):
     
     return slinalg.spsolve(laplacian, b)
 
+# Get the next value of A
+def solve_dynamics(A, dAdt, J, laplacian, C, dt, c, mu0, n, exact = False):
+    # Get R
+    R = (c * dt) ** 2 / 8. * mu0 * J + dt / 2. * dAdt + A
+    
+    for Coordinate in range(3):
+        R += (c * dt) ** 2 / (8 * dx[Coordinate] ** 2) * (C[Coordinate, 0] + C[Coordinate, 1])
+    
+    # Calculate matrix
+    M = (c * dt) ** 2 / 8 * laplacian
+    
+    # Calculate A(t0 + 1/2 dt)
+    if exact is True:
+        HalfA = slinalg.spsolve(sparse.identity(A.shape[0], format = "csr") - M, R)
+        
+    else:
+        HalfA = A + dt / 2. * dAdt
+        
+        for _ in range(n):
+            HalfA = M.dot(HalfA) + R
+    
+    # Calculate the new values for the potential
+    NewA = 4 * HalfA - dt * dAdt - 3 * A
+    NewdAdt = (8 / dt * (HalfA - A) - 3 * dAdt)
+    return (NewA, NewdAdt)
 
 # Solves non-responsive EM-statics approximately
 #
@@ -1121,37 +1146,39 @@ class video:
     def plot_scalar(self, Values, extent = [0, 1, 0, 1], scale = default_scalar_scale, cmap = "coolwarm", clim = None):
         # Save scale
         self.__scale = scale
-        
-        # Save the plot type
-        self.__type = "scalar"
-        
+                
         # Plot
         _, _, self.__plot = plot_scalar(Values, extent = extent, scale = scale, fig = self.__fig, ax = self.__ax, cmap = cmap, clim = clim)
     
-    def update_scalar(self):
-        pass
+    def update_scalar(self, Values):
+        update_plot_scalar(self.__plot, Values, scale = self.__scale)
     
     def plot_1D(self, Values, extent = [0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-", label = ""):
         # Save scale
         self.__scale = scale
-        
-        # save plot type
-        self.__type = "1D"
-        
+                
         # Plot
         _, _, self.__plot = plot_1D(Values, extent = extent, scale = scale, fig = self.__fig, ax = self.__ax, fmt = fmt, label = label)
     
-    def update_1D(self):
-        pass
+    def update_1D(self, Values):
+        update_plot_1D(self.__plot, Values, scale = self.__scale)
     
     def plot_vector(self, vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None, cutoff = 0):
         # Save scale
         self.__scale = scale
         
-        # save the plot type
-        self.__type = "vector"
+        # Find cutoff
+        if clim is None:
+            self.__cutoff = cutoff * np.max(vx ** 2 + vy ** 2)
+            
+        else:
+            self.__cutoff = cutoff * clim[1]
+        
+        # Plot
+        _, _, self.__plot = plot_vector(vx, vy, extent = extent, scale = scale, fig = self.__fig, ax = self.__ax, cmap = cmap, clim = clim, cutoff = cutoff)
+        
     
-    def update_vector(self):
-        pass
+    def update_vector(self, vx, vy):
+        update_plot_vector(self.__plot, vx, vy, scale = self.__scale, cutoff = self.__cutoff)
         
 
