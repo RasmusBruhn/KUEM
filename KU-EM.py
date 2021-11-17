@@ -839,38 +839,6 @@ def solve_approx(J, Laplacian, C, mu0, dx, A0, n, k, progress = False):
     return A
 
 
-def video_init(Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100):
-
-    return (fig, ax, Video)
-
-def video_update(fig, Video):
-    # Convert figure to image
-    # Draw figure to canvas
-    fig.canvas.draw()
-    
-    # Get shape
-    Width, Height = fig.canvas.get_width_height()
-    
-    # Convert to numpy array
-    Buffer = np.fromstring(fig.canvas.tostring_rgb(), dtype = np.uint8)
-    
-    # Convert buffer to image
-    Image = Buffer.reshape((Height, Width, 3))
-
-    # Convert to cv2 colours
-    Image = cv2.cvtColor(Image, cv2.COLOR_RGB2BGR)
-    
-    # Draw to video
-    Video.write(Image)
-    
-def video_finish(fig, Video):
-    # Close figure
-    plt.close(fig)
-    
-    # Close video
-    Video.release()
-
-
 # The simulation class, create this class to define your simulation,
 # Then use it's methods to run the simulation and diagnistics/plotting
 # N, delta_x, x0, c, mu0 and boundaries are default arguments
@@ -1140,9 +1108,25 @@ class video:
             self.__v.release()
             
             self.__active = False
-            
-    def plot_scalar(self):
-        pass
+          
+    # Plot a scalar field
+    #
+    # Values:       The 2D array of values to plot
+    # extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
+    # scale:        Function to scale the values of the field
+    # cmap:         The colour map to plot the scalar field with
+    # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the field,
+    #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
+    #               values in the field
+    def plot_scalar(self, Values, extent = [0, 1, 0, 1], scale = default_scalar_scale, cmap = "coolwarm", clim = None):
+        # Save scale
+        self.__scale = scale
+        
+        # Save the plot type
+        self.__type = "scalar"
+        
+        # Plot
+        _, _, self.__plot = plot_scalar(Values, extent = extent, scale = scale, fig = self.__fig, ax = self.__ax, cmap = cmap, clim = clim)
     
     def update_scalar(self):
         pass
