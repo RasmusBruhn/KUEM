@@ -1131,14 +1131,25 @@ class video:
     def update_scalar(self):
         pass
     
-    def plot_1D(self):
-        pass
+    def plot_1D(self, Values, extent = [0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-", label = ""):
+        # Save scale
+        self.__scale = scale
+        
+        # save plot type
+        self.__type = "1D"
+        
+        # Plot
+        _, _, self.__plot = plot_1D(Values, extent = extent, scale = scale, fig = self.__fig, ax = self.__ax, fmt = fmt, label = label)
     
     def update_1D(self):
         pass
     
-    def plot_vector(self):
-        pass
+    def plot_vector(self, vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None, cutoff = 0):
+        # Save scale
+        self.__scale = scale
+        
+        # save the plot type
+        self.__type = "vector"
     
     def update_vector(self):
         pass
