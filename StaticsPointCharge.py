@@ -48,7 +48,7 @@ Points2 = EM.sample_points_line(Start, End, 1000)
 Values2 = Sim.sample_values(Sim.get_V(), Points2)
 
 # Plot V along x-axis
-_, ax2, _ = EM.plot_1D(Values2, extent = [Start[0], End[0]], label = "Sim")
+_, ax2, Plot = EM.plot_1D(Values2, extent = [Start[0], End[0]], label = "Sim")
 ax2.plot(np.linspace(0.01, 1, 1000), 1 / (4 * np.pi * np.linspace(0.01, 1, 1000)) - 1 / (4 * np.pi), "-", label = "Theory")
 ax2.set_xlabel("Distance")
 ax2.set_ylabel("Potential")

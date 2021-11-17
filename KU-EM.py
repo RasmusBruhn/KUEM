@@ -234,6 +234,15 @@ def plot_scalar(Values, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig
     return fig, ax, Plot
 
 
+# Updates a scalar plot with some new values
+#
+# Plot:         The Plot element returned by plot_scalar
+# Values:       The new values to plot, it will use same extent, cmap and clim
+# scale:        The scale function used, this should be the same as originally used
+def update_plot_scalar(Plot, Values, scale = default_scalar_scale):
+    Plot.set_array(np.transpose(scale(Values)))
+
+
 # Plot the values along a line in a scalar field
 #
 # Values:       The 1D array of values to plot
@@ -252,8 +261,21 @@ def plot_1D(Values, extent = [0, 1], scale = default_scalar_scale, fig = None, a
     # Plot graph
     Plot = ax.plot(np.linspace(extent[0], extent[1], len(Values)), Values, fmt, label = label)
     
-    return fig, ax, Plot
+    return fig, ax, Plot[0]
 
+
+# Updates a normal 1D plot
+#
+# Plot:         The Plot element returned by plot_1D
+# Values:       The new values to plot
+# scale:        The scale function used, this should be the same as originally used
+def update_plot_1D(Plot, Values, scale = default_scalar_scale):
+    # Get the x values
+    x, _ = Plot.get_data()
+    
+    # Set the new values
+    Plot.set_data(x, scale(Values))
+    
 
 # Plot a vector field
 #
@@ -307,6 +329,30 @@ def plot_vector(vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig
     Plot = ax.quiver(X, Y, vx, vy, scale(vAbs), cmap = cmap, pivot = "middle", clim = clim)
     
     return fig, ax, Plot
+
+
+# Updates a vector plot
+#
+# Plot:         The Plot element returned by plot_vector
+# vx:           The new vector components along the x axis to plot
+# vy:           The new vector components along the y axis to plot
+# scale:        The scale function used, this should be the same as originally used
+# cutoff:       The cutoff used in absolute values, this should be the same as originally used
+def update_plot_vector(Plot, vx, vy, scale = default_scalar_scale, cutoff = 0):
+    # Calculate length of vectors
+    vAbs = np.sqrt(vx ** 2 + vy ** 2)
+
+    # Make cutoff        
+    vAbs[vAbs < cutoff] = 0
+
+    # Normalise the lengths
+    vAbs[vAbs == 0] = np.nan
+    
+    vx = vx / vAbs
+    vy = vy / vAbs
+ 
+    # Update the plot
+    Plot.set_UVC(vx, vy, scale(vAbs))
 
 
 # Creates an array of points sampled from a plane spanned by x_hat and y_hat and centered on x_c
@@ -1094,5 +1140,23 @@ class video:
             self.__v.release()
             
             self.__active = False
+            
+    def plot_scalar(self):
+        pass
+    
+    def update_scalar(self):
+        pass
+    
+    def plot_1D(self):
+        pass
+    
+    def update_1D(self):
+        pass
+    
+    def plot_vector(self):
+        pass
+    
+    def update_vector(self):
+        pass
         
 
