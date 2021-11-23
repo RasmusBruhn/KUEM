@@ -945,6 +945,12 @@ class sim:
         self.__t = t0
         self.__dt = dt
         
+        # Setup sampler list
+        self.__samplers = []
+        
+        # Setup data calculated fields
+        self.__reset_derived()
+        
         # Create starting condition for potential
         # Initialize to 0
         if init is True:
@@ -1031,6 +1037,13 @@ class sim:
         # Update the value for k
         self.__k /= (2 * np.sum(1 / self.__dx ** 2))
         
+    # Resets all the derived fields
+    def __reset_derived(self):
+        self.__E = None
+        self.__B = None
+        self.__S = None
+        self.__u = None
+                
     # Get electric potential
     def get_V(self):
         return self.__A[:, 0] * self.__c
@@ -1041,18 +1054,30 @@ class sim:
     
     # Get E-field
     def get_E(self):
+        if self.__E is not None:
+            return self.__E
+        
         return calc_E(self.__A[:, 0] * self.__c, self.__grad, self.__C(self.__t)[:, :, :, 0])
     
     # Get the B-field
     def get_B(self):
+        if self.__B is not None:
+            return self.__B
+        
         return calc_B(self.__A[:, 1:], self.__curl, self.__C(self.__t)[:, :, :, 1:])
     
     # Get the Poynting vector field
     def get_S(self):
+        if self.__S is not None:
+            return self.__S
+        
         return calc_S(self.get_E(), self.get_B(), self.__mu0)
 
     # Get the energy density
     def get_u(self):
+        if self.__u is not None:
+            return self.__u
+        
         return calc_u(self.get_E(), self.get_B(), self.__mu0, self.__c)
 
     # Get the charge density
@@ -1086,19 +1111,29 @@ class sim:
             
         Time2 = time.time()
         
+        # Run samplers
+        self.run_samplers()
+        
         return Time2 - Time1
     
-    def step(self, exact = False):
+    def step(self, count = 1, exact = False):
         Time1 = time.time()
         
         # Solve it
-        self.__A, self.__dAdt = solve_dynamics(self.__A, self.__dAdt, self.__J(self.__t + self.__dt / 2), self.__lapl, self.__C(self.__t + self.__dt / 2), self.__dx, self.__dt, self.__c, self.__mu0, self.__nDyn, exact = exact)
-        
-        # Add to the time
-        self.__t += self.__dt
-        
+        for _ in range(count):
+            self.__A, self.__dAdt = solve_dynamics(self.__A, self.__dAdt, self.__J(self.__t + self.__dt / 2), self.__lapl, self.__C(self.__t + self.__dt / 2), self.__dx, self.__dt, self.__c, self.__mu0, self.__nDyn, exact = exact)
+            
+            # Add to the time
+            self.__t += self.__dt
+            
         # Calculate ellapsed time
         Time2 = time.time()
+        
+        # Reset the fields
+        self.__reset_derived()
+        
+        # Run samplers
+        self.run_samplers()
         
         return Time2 - Time1
     
@@ -1119,6 +1154,18 @@ class sim:
     # y_hat:        A 3 long array for the direction of the y axis
     def sample_vectors(self, Field, Points, x_hat, y_hat):
         return sample_vectors(Field, Points, x_hat, y_hat, self.__dx, self.__N, self.__x0)
+        
+    # Adds a sampler to the simulation
+    #
+    # Sampler:      The sampler to add, this will be run every time step/solve is run
+    def add_sampler(self, sampler):
+        self.__samplers.append(sampler)
+    
+    # Run all the samplers
+    def run_samplers(self):
+        for sampler in self.__samplers:
+            sampler.sample(self)
+
     
 # Creates a video
 #
@@ -1224,3 +1271,32 @@ class video:
         update_plot_vector(self.__plot, vx, vy, scale = self.__scale, cutoff = self.__cutoff)
         
 
+# A class to take samples of a simulation every timestep
+class sampler:
+    def __init__(self, Sim):
+        pass
+    
+    # Take one sample
+    #
+    # Sim:      The simulation the sample is to be taken from
+    def sample(self, sim):
+        pass
+    
+    # Retrieves all the samples stored
+    def get_samples(self):
+        pass
+    
+
+# A sampler which samples a field each timestep
+class sampler_field(sampler):
+    pass
+
+
+# A sampler which samples a list of numbers each time step (vector)
+class sampler_vector(sampler):
+    pass
+
+
+# A sampler which samples numbers each timestep
+class sampler_number(sampler):
+    pass
