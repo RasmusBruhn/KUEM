@@ -422,111 +422,107 @@ def default_C(dx, N, x0, c, mu0):
 # Creates open boundary matrices the first dimension is the coordinate and the second dimension is the direction (positive or negative)
 #
 # N is a default argument
-def get_boundaries_open(N):
-    # Make list to save the boundaries (diagonals at the points at boundary)
-    Bounds = np.empty((3, 2), dtype = sparse.csr_matrix)
+def get_boundaries_open(N, Coordinate, Dir):
+    # Calculate the position of the offdiagonal
+    OffPos1 = np.prod(N[:Coordinate])
+    OffPos2 = 2 * np.prod(N[:Coordinate])
+    OffPos3 = 3 * np.prod(N[:Coordinate])
     
-    # Go through all 3 coordinates
-    for Coordinate in range(3):
-        # Go through each direction
-        for Dir in range(2):
-            # Calculate the position of the offdiagonal
-            OffPos = np.prod(N[:Coordinate])
-            
-            # Create a tile
-            Tile = np.zeros(np.prod(N[:Coordinate + 1]))
-            OffTile = np.zeros(np.prod(N[:Coordinate + 1]))
-            
-            # Add the ones
-            if Dir == 0:
-                Tile[:np.prod(N[:Coordinate])] = 1
-                OffTile[:np.prod(N[:Coordinate])] = -1
-                OffPos *= -1
-                
-            else:
-                Tile[-np.prod(N[:Coordinate]):] = 1
-                OffTile[-np.prod(N[:Coordinate]):] = -1
-                
-            # Create the diagonal
-            Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))
-            OffDiag = np.tile(OffTile, np.prod(N[Coordinate + 1:]))
-            
-            if Dir == 0:
-                OffDiag = OffDiag[:-np.prod(N[:Coordinate])]
-                
-            else:
-                OffDiag = OffDiag[np.prod(N[:Coordinate]):]
+    # Create a tile
+    Tile = np.zeros(np.prod(N[:Coordinate + 1]))
+    OffTile1 = np.zeros(np.prod(N[:Coordinate + 1]))
+    OffTile2 = np.zeros(np.prod(N[:Coordinate + 1]))
+    OffTile3 = np.zeros(np.prod(N[:Coordinate + 1]))
+
+    # Add the ones
+    if Dir == 0:
+        Tile[:np.prod(N[:Coordinate])] = 2
+        OffTile1[:np.prod(N[:Coordinate])] = -1
+        OffTile2[:np.prod(N[:Coordinate])] = 0           
+        OffTile3[:np.prod(N[:Coordinate])] = 0                
         
-            # Create the boundary
-            Bounds[Coordinate, Dir] = sparse.diags([Diag, OffDiag], [0, OffPos], format = "csr")
+    else:
+        Tile[-np.prod(N[:Coordinate]):] = 2
+        OffTile1[-np.prod(N[:Coordinate]):] = -1
+        OffTile2[-np.prod(N[:Coordinate]):] = 0
+        OffTile3[-np.prod(N[:Coordinate]):] = 0
+        OffPos1 *= -1
+        OffPos2 *= -1
+        OffPos3 *= -1
+        
+    # Create the diagonal
+    Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))
+    OffDiag1 = np.tile(OffTile1, np.prod(N[Coordinate + 1:]))
+    OffDiag2 = np.tile(OffTile2, np.prod(N[Coordinate + 1:]))
+    OffDiag3 = np.tile(OffTile3, np.prod(N[Coordinate + 1:]))
+    
+    if Dir == 0:
+        OffDiag1 = OffDiag1[:-np.prod(N[:Coordinate])]
+        OffDiag2 = OffDiag2[:-2 * np.prod(N[:Coordinate])]
+        OffDiag3 = OffDiag3[:-2 * np.prod(N[:Coordinate])]
+       
+    else:
+        OffDiag1 = OffDiag1[np.prod(N[:Coordinate]):]
+        OffDiag2 = OffDiag2[2 * np.prod(N[:Coordinate]):]
+        OffDiag3 = OffDiag3[2 * np.prod(N[:Coordinate]):]
+
+    # Create the boundary
+    Bound = sparse.diags([Diag, OffDiag1, OffDiag2, OffDiag3], [0, OffPos1, OffPos2, OffPos3], format = "csr") * 0.9
             
-    return Bounds
+    return Bound
 
 
 # Creates boundary matrices, this is matrices with ones at the diagonal at points at each of the 6 boundaries
 # the first dimension is the coordinate and the second dimension is the direction (positive or negative)
 #
 # N is a default argument
-def get_boundaries_flat(N):
-    # Make list to save the boundaries (diagonals at the points at boundary)
-    Bounds = np.empty((3, 2), dtype = sparse.csr_matrix)
+def get_boundaries_flat(N, Coordinate, Dir):
+    # Create a tile
+    Tile = np.zeros(np.prod(N[:Coordinate + 1]))
     
-    # Go through all 3 coordinates
-    for Coordinate in range(3):
-        # Go through each direction
-        for Dir in range(2):
-            # Create a tile
-            Tile = np.zeros(np.prod(N[:Coordinate + 1]))
+    # Add the ones
+    if Dir == 0:
+        Tile[:np.prod(N[:Coordinate])] = 1
+        
+    else:
+        Tile[-np.prod(N[:Coordinate]):] = 1
+        
+    # Create the diagonal
+    Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))
+    
+    # Create the boundary
+    Bound = sparse.diags([Diag], [0], format = "csr")
             
-            # Add the ones
-            if Dir == 0:
-                Tile[:np.prod(N[:Coordinate])] = 1
-                
-            else:
-                Tile[-np.prod(N[:Coordinate]):] = 1
-                
-            # Create the diagonal
-            Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))
-            
-            # Create the boundary
-            Bounds[Coordinate, Dir] = sparse.diags([Diag], [0], format = "csr")
-            
-    return Bounds
+    return Bound
 
 
 # Creates boundary matrices for the periodic boundary conditions
 # the first dimension is the coordinate and the second dimension is the direction (positive or negative)
 #
 # N is a default argument
-def get_boundaries_periodic(N):
-    # Make list to save the boundaries
-    Bounds = np.empty((3, 2), dtype = sparse.csr_matrix)
+def get_boundaries_periodic(N, Coordinate, Dir):
+    # Calculate the position of the offdiagonal
+    OffPos = np.prod(N[:Coordinate]) * (N[Coordinate] - 1)
+                  
+    if Dir == 1:
+        OffPos *= -1
     
-    # Go through all 3 coordinates
-    for Coordinate in range(3):
-        for Dir in range(2):
-            # Calculate the position of the offdiagonal
-            OffPos = np.prod(N[:Coordinate]) * (N[Coordinate] - 1)
-                          
-            if Dir == 1:
-                OffPos *= -1
-            
-            # Create a tile
-            Tile = np.zeros(np.prod(N[:Coordinate + 1]))
-            
-            # Add the ones
-            Tile[:np.prod(N[:Coordinate])] = 1
-            
-            # Create the diagonal
-            Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))
-            
-            # Remove the part outside the matrix
-            Diag = Diag[:Tile.shape[0] * np.prod(N[Coordinate + 1:]) - np.prod(N[:Coordinate]) * (N[Coordinate] - 1)]
+    # Create a tile
+    Tile = np.zeros(np.prod(N[:Coordinate + 1]))
+    
+    # Add the ones
+    Tile[:np.prod(N[:Coordinate])] = 1
+    
+    # Create the diagonal
+    Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))
+    
+    # Remove the part outside the matrix
+    Diag = Diag[:Tile.shape[0] * np.prod(N[Coordinate + 1:]) - np.prod(N[:Coordinate]) * (N[Coordinate] - 1)]
 
-            # Create the boundary
-            Bounds[Coordinate, Dir] = sparse.diags([Diag], [OffPos], format = "csr")
+    # Create the boundary
+    Bound = sparse.diags([Diag], [OffPos], format = "csr")
             
-    return Bounds
+    return Bound
 
 
 # Creates a custom boundary matrix for some coordinate and direction, each point can either be open or closed
@@ -535,20 +531,20 @@ def get_boundaries_periodic(N):
 # OpenPos:          A vector with either 0 or 1 for each position in the grid, 0 for closed or not on boundary and 1 for open
 # Coordinate:       The coordinate along which the boundary is (1, 2 or 3 for x, y or z)
 # Dir:              0 for the negative boundary and 1 for the positive boundary
-def get_boundaries_custom(N, OpenPos, Coordinate, Dir):
+#def get_boundaries_custom(N, OpenPos, Coordinate, Dir):
     # Find the off diagonal position
-    OffPos = np.prod(N[:Coordinate])
+#    OffPos = np.prod(N[:Coordinate])
     
     # Shorten OpenPos
-    if Dir == 0:
-        Diag = OpenPos[:-OffPos]
+#    if Dir == 0:
+#        Diag = OpenPos[:-OffPos]
         
-    else:
-        Diag = OpenPos[OffPos:]
-        OffPos *= -1
+#    else:
+#        Diag = OpenPos[OffPos:]
+#        OffPos *= -1
         
-    # Create the matrix
-    return sparse.diags([Diag], [OffPos], format = "csr")
+#    # Create the matrix
+#    return sparse.diags([Diag], [OffPos], format = "csr")
     
 
 # Creates matrices for differentiating once
@@ -557,16 +553,7 @@ def get_boundaries_custom(N, OpenPos, Coordinate, Dir):
 def get_ddx(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
     # Make a list for (ddx, ddy, ddz)
     ddx = np.empty(3, dtype = sparse.csr_matrix)
-    
-    # Get the open boundaries
-    OpenBounds = get_boundaries_open(N)
-    
-    # Get the flat boundaries
-    FlatBounds = get_boundaries_flat(N)
-    
-    # Get periodic boundaries
-    PeriodicBounds = get_boundaries_periodic(N)
-    
+        
     # Go through each coordinate
     for Coordinate in range(3):
         # Create a tile
@@ -583,28 +570,28 @@ def get_ddx(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["c
         
         # Add the open boundaries
         if boundaries[Coordinate] == "periodic":
-            ddx[Coordinate] -= PeriodicBounds[Coordinate, 0]
+            ddx[Coordinate] -= get_boundaries_periodic(N, Coordinate, 0)
 
         elif isinstance(boundaries[Coordinate][0], sparse.csr_matrix):
             ddx[Coordinate] -= boundaries[Coordinate][0]
 
         elif boundaries[Coordinate][0] == "open":
-            ddx[Coordinate] -= OpenBounds[Coordinate, 0]            
+            ddx[Coordinate] -= get_boundaries_open(N, Coordinate, 0)            
    
         elif boundaries[Coordinate][0] == "flat":
-            ddx[Coordinate] -= FlatBounds[Coordinate, 0]            
+            ddx[Coordinate] -= get_boundaries_flat(N, Coordinate, 0)         
                     
         if boundaries[Coordinate] == "periodic":
-            ddx[Coordinate] += PeriodicBounds[Coordinate, 1]
+            ddx[Coordinate] += get_boundaries_periodic(N, Coordinate, 1)
 
         elif isinstance(boundaries[Coordinate][1], sparse.csr_matrix):
             ddx[Coordinate] += boundaries[Coordinate][1]
             
         elif boundaries[Coordinate][1] == "open":
-            ddx[Coordinate] += OpenBounds[Coordinate, 1]
+            ddx[Coordinate] += get_boundaries_open(N, Coordinate, 1)
 
         elif boundaries[Coordinate][1] == "flat":
-            ddx[Coordinate] += FlatBounds[Coordinate, 1]
+            ddx[Coordinate] += get_boundaries_flat(N, Coordinate, 1)
                                
         # Correct the value
         ddx[Coordinate] /= (2 * dx[Coordinate])
@@ -618,15 +605,6 @@ def get_ddx(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["c
 def get_ddx2(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
     # Make a list for (ddx, ddy, ddz)
     ddx2 = np.empty(3, dtype = sparse.csr_matrix)
-
-    # Get the open boundaries
-    OpenBounds = get_boundaries_open(N)
-
-    # Get the flat boundaries
-    FlatBounds = get_boundaries_flat(N)
-
-    # Get periodic boundaries
-    PeriodicBounds = get_boundaries_periodic(N)
 
     # Go through each coordinate
     for Coordinate in range(3):
@@ -644,28 +622,28 @@ def get_ddx2(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["
 
         # Add open boundary conditions
         if boundaries[Coordinate] == "periodic":
-            ddx2[Coordinate] += PeriodicBounds[Coordinate, 0]
+            ddx2[Coordinate] += get_boundaries_periodic(N, Coordinate, 0)
 
         elif isinstance(boundaries[Coordinate][0], sparse.csr_matrix):
             ddx2[Coordinate] += boundaries[Coordinate][0]
 
         elif boundaries[Coordinate][0] == "open":
-            ddx2[Coordinate] += OpenBounds[Coordinate, 0]
+            ddx2[Coordinate] += get_boundaries_open(N, Coordinate, 0)
       
         elif boundaries[Coordinate][0] == "flat":
-            ddx2[Coordinate] += FlatBounds[Coordinate, 0]
+            ddx2[Coordinate] += get_boundaries_flat(N, Coordinate, 0)
                   
         if boundaries[Coordinate] == "periodic":
-            ddx2[Coordinate] += PeriodicBounds[Coordinate, 1]
+            ddx2[Coordinate] += get_boundaries_periodic(N, Coordinate, 1)
 
         elif isinstance(boundaries[Coordinate][1], sparse.csr_matrix):
             ddx2[Coordinate] += boundaries[Coordinate][1]
 
         elif boundaries[Coordinate][1] == "open":
-            ddx2[Coordinate] += OpenBounds[Coordinate, 1]
+            ddx2[Coordinate] += get_boundaries_open(N, Coordinate, 1)
 
         elif boundaries[Coordinate][1] == "flat":
-            ddx2[Coordinate] += FlatBounds[Coordinate, 1]
+            ddx2[Coordinate] += get_boundaries_flat(N, Coordinate, 1)
 
         # Correct the value
         ddx2[Coordinate] /= dx[Coordinate] ** 2
@@ -743,7 +721,7 @@ def get_curl(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["
 def get_lapl(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
     # Get ddx2
     ddx2 = get_ddx2(dx, N, boundaries = boundaries)
-    
+
     # Create laplacian
     return np.sum(ddx2)
 
