@@ -190,8 +190,8 @@ def sample_vectors(Field, Points, x_hat, y_hat, dx, N, x0):
     FieldValues = sample_values(Field, Points, dx, N, x0)
     
     # Find the x and y axis components
-    vx = np.sum(FieldValues * x_hat.reshape((1,) * (len(FieldValues.shape) - 1) + (3,)), axis = -1)
-    vy = np.sum(FieldValues * y_hat.reshape((1,) * (len(FieldValues.shape) - 1) + (3,)), axis = -1)
+    vx = np.sum(FieldValues * x_hat.reshape((1,) * (len(FieldValues.shape) - len(x_hat.shape)) + x_hat.shape), axis = -1)
+    vy = np.sum(FieldValues * y_hat.reshape((1,) * (len(FieldValues.shape) - len(y_hat.shape)) + y_hat.shape), axis = -1)
 
     return vx, vy
 
@@ -810,7 +810,7 @@ def solve_approx(J, lapl, C, mu0, dx, A0, n, k, progress = False):
         # Write the time remaining
         Time2 = time.time()
         if progress is not False and (Time2 - Time1 >= progress):
-            print("%.2g s remaining"%((Time2 - Time0) * (n - i - 1) / (i + 1)))
+            print(f"{(Time2 - Time0) * (n - i - 1) / (i + 1):.2g} s remaining")
             Time1 = Time2
         
     return A
@@ -886,43 +886,43 @@ class sim:
     def __init__(self, N, delta_x = np.array([1, 1, 1]), x0 = np.array([0, 0, 0]), t0 = 0, dt = 1, c = 1, mu0 = 1, approx_n = 0.1, dyn_n = 10, approx_k = 1, init = True, init_ddt = True, init_copy = False, J = default_J, C = default_C, grad = get_grad, div = get_div, curl = get_curl, lapl = get_lapl, boundaries = [["closed", "closed"], ["closed", "closed"], ["closed", "closed"]]):
         # Test for type errors
         if not isinstance(N, np.ndarray):
-            raise Exception("N has wrong type, it is " + str(type(N)) + " but it should be " + str(np.ndarray))
+            raise Exception(f"N has wrong type, it is {str(type(N)):s} but it should be {str(np.ndarray):s}")
         
         if not issubclass(N.dtype.type, np.integer):
-            raise Exception("N has wrong dtype, it is " + str(N.dtype.type) + " but it should be " + str(np.integer))
+            raise Exception(f"N has wrong dtype, it is {str(N.dtype.type):s} but it should be {str(np.integer):s}")
         
         if not isinstance(delta_x, np.ndarray):
-            raise Exception("delta_x has wrong type, it is " + str(type(delta_x)) + " but it should be " + str(np.ndarray))
+            raise Exception(f"delta_x has wrong type, it is {str(type(delta_x)):s} but it should be {str(np.ndarray):s}")
         
         if not (issubclass(delta_x.dtype.type, np.floating) or issubclass(delta_x.dtype.type, np.integer)):
-            raise Exception("delta_x has wrong dtype, it is " + str(delta_x.dtype.type) + " but it should be " + str(np.integer) + " or " + str(np.floating))
+            raise Exception(f"delta_x has wrong dtype, it is {str(delta_x.dtype.type):s} but it should be {str(np.integer):s} or {str(np.floating):s}")
         
         if not isinstance(x0, np.ndarray):
-            raise Exception("x0 has wrong type, it is " + str(type(x0)) + " but it should be " + str(np.ndarray))
+            raise Exception(f"x0 has wrong type, it is {str(type(x0)):s} but it should be {str(np.ndarray):s}")
         
         if not (issubclass(x0.dtype.type, np.floating) or issubclass(x0.dtype.type, np.integer)):
-            raise Exception("x0 has wrong dtype, it is " + str(x0.dtype.type) + " but it should be " + str(np.integer) + " or " + str(np.floating))
+            raise Exception(f"x0 has wrong dtype, it is {str(x0.dtype.type):s} but it should be {str(np.integer):s} or {str(np.floating):s}")
 
         if not (isinstance(t0, int) or isinstance(t0, float)):
-            raise Exception("t0 has wrong type, it is " + str(type(t0)) + " but it should be " + str(int) + " or " + str(float))
+            raise Exception(f"t0 has wrong type, it is {str(type(t0)):s} but it should be {str(int):s} or {str(float):s}")
 
         if not (isinstance(dt, int) or isinstance(dt, float)):
-            raise Exception("dt has wrong type, it is " + str(type(dt)) + " but it should be " + str(int) + " or " + str(float))
+            raise Exception(f"dt has wrong type, it is {str(type(dt)):s} but it should be {str(int):s} or {str(float):s}")
 
         if not (isinstance(c, int) or isinstance(c, float)):
-            raise Exception("c has wrong type, it is " + str(type(c)) + " but it should be " + str(int) + " or " + str(float))
+            raise Exception(f"c has wrong type, it is {str(type(c)):s} but it should be {str(int):s} or {str(float):s}")
 
         if not (isinstance(mu0, int) or isinstance(mu0, float)):
-            raise Exception("mu0 has wrong type, it is " + str(type(mu0)) + " but it should be " + str(int) + " or " + str(float))
+            raise Exception(f"mu0 has wrong type, it is {str(type(mu0)):s} but it should be {str(int):s} or {str(float):s}")
 
         if not (isinstance(approx_n, int) or isinstance(approx_n, float)):
-            raise Exception("approx_n has wrong type, it is " + str(type(approx_n)) + " but it should be " + str(int) + " or " + str(float))
+            raise Exception(f"approx_n has wrong type, it is {str(type(approx_n)):s} but it should be {str(int):s} or {str(float):s}")
         
         if not (isinstance(approx_k, int) or isinstance(approx_k, float)):
-            raise Exception("approx_k has wrong type, it is " + str(type(approx_k)) + " but it should be " + str(int) + " or " + str(float))
+            raise Exception(f"approx_k has wrong type, it is {str(type(approx_k)):s} but it should be {str(int):s} or {str(float):s}")
         
         if not isinstance(dyn_n, int):
-            raise Exception("dyn_n has wrong type, it is " + str(type(dyn_n)) + " but it should be " + str(int))
+            raise Exception(f"dyn_n has wrong type, it is {str(type(dyn_n)):s} but it should be {str(int):s}")
         
         # 0 if direction is periodic, 1 if not
         self.__periodic = np.ones(3, dtype = int)
@@ -959,7 +959,7 @@ class sim:
         # Use given starting conditions
         elif isinstance(init, np.ndarray):
             if np.prod(np.array(init.shape)) != self.__V * 4:
-                raise Exception("init has wrong length, it has length " + str(np.prod(np.array(init.shape))) + " but it should be " + str(self.__V * 4))
+                raise Exception(f"init has wrong length, it has length {np.prod(np.array(init.shape)):d} but it should be {self.__V * 4:d}")
             
             if init_copy is True:
                 self.__A = init.copy().reshape((self.__V, 4))
@@ -968,10 +968,10 @@ class sim:
                 self.__A = init.reshape((self.__V, 4))
                 
             else:
-                raise Exception("init_copy has wrong type, it is " + str(type(init_copy)) + " but it should be " + str(bool))
+                raise Exception(f"init_copy has wrong type, it is {str(type(init_copy)):s} but it should be {str(bool):s}")
             
         else:
-            raise Exception("init has wrong type, it is " + str(type(init)) + " but it should be " + str(np.ndarray) + " or be True")
+            raise Exception(f"init has wrong type, it is {str(type(init)):s} but it should be {str(np.ndarray):s} or be True")
         
         if init_ddt is True:
             self.__dAdt = np.zeros((self.__V, 4))
@@ -979,7 +979,7 @@ class sim:
         # Use given starting conditions
         elif isinstance(init_ddt, np.ndarray):
             if np.prod(np.array(init_ddt.shape)) != self.__V * 4:
-                raise Exception("init_ddt has wrong length, it has length " + str(np.prod(np.array(init_ddt.shape))) + " but it should be " + str(self.__V * 4))
+                raise Exception(f"init_ddt has wrong length, it has length {np.prod(np.array(init_ddt.shape)):d} but it should be {self.__V * 4:d}")
             
             if init_copy is True:
                 self.__dAdt = init_ddt.copy().reshape((self.__V, 4))
@@ -988,10 +988,10 @@ class sim:
                 self.__dAdt = init.reshape((self.__V, 4))
                 
             else:
-                raise Exception("init_copy has wrong type, it is " + str(type(init_copy)) + " but it should be " + str(bool))
+                raise Exception(f"init_copy has wrong type, it is {str(type(init_copy)):s} but it should be {str(bool):s}")
             
         else:
-            raise Exception("init_ddt has wrong type, it is " + str(type(init_ddt)) + " but it should be " + str(np.ndarray) + " or be True")
+            raise Exception(f"init_ddt has wrong type, it is {str(type(init_ddt)):s} but it should be {str(np.ndarray):s} or be True")
             
         
         # Save all the generators
@@ -1005,34 +1005,34 @@ class sim:
         self.__J = J(self.__dx, self.__N, self.__x0, self.__c, self.__mu0)
         
         if not callable(self.__J):
-            raise Exception("J has wrong type, it is " + str(type(self.__J)) + " but it should be a function")
+            raise Exception(f"J has wrong type, it is {str(type(self.__J)):s} but it should be a function")
         
         # Get the closed boundary conditions
         self.__C = C(self.__dx, self.__N, self.__x0, self.__c, self.__mu0)
         
         if not callable(self.__C):
-            raise Exception("C has wrong type, it is " + str(type(self.__C)) + " but it should be a function")
+            raise Exception(f"C has wrong type, it is {str(type(self.__C)):s} but it should be a function")
         
         # Get vector calculus functions
         self.__grad = grad(self.__dx, self.__N, boundaries = boundaries)
             
         if not callable(self.__grad):
-            raise Exception("grad has wrong type, it is " + str(type(self.__grad)) + " but it should be a function")
+            raise Exception(f"grad has wrong type, it is {str(type(self.__grad)):s} but it should be a function")
 
         self.__div = div(self.__dx, self.__N, boundaries = boundaries)
             
         if not callable(self.__div):
-            raise Exception("div has wrong type, it is " + str(type(self.__div)) + " but it should be a function")
+            raise Exception(f"div has wrong type, it is {str(type(self.__div)):s} but it should be a function")
 
         self.__curl = curl(self.__dx, self.__N, boundaries = boundaries)
             
         if not callable(self.__curl):
-            raise Exception("curl has wrong type, it is " + str(type(self.__curl)) + " but it should be a function")
+            raise Exception(f"curl has wrong type, it is {str(type(self.__curl)):s} but it should be a function")
                 
         self.__lapl = lapl(self.__dx, self.__N, boundaries = boundaries)
                 
         if not isinstance(self.__lapl, sparse.csr_matrix):
-            raise Exception("lapl has wrong type, is " + str(type(self.__lapl)) + " but it should be " + str(sparse.csr_matrix))
+            raise Exception(f"lapl has wrong type, it is {str(type(self.__lapl)):s} but it should be {str(sparse.csr_matrix):s}")
             
         # Update the value for k
         self.__k /= (2 * np.sum(1 / self.__dx ** 2))
@@ -1081,16 +1081,16 @@ class sim:
         return calc_u(self.get_E(), self.get_B(), self.__mu0, self.__c)
 
     # Get the charge density
-    #
-    # t:        The time
     def get_Rho(self):
         return self.__J(self.__t)[:, 0] / self.__c
     
     # Get the current density
-    #
-    # t:        The time
     def get_J(self):
         return self.__J(self.__t)[:, 1:]
+
+    # Get the time
+    def get_t(self):
+        return self.__t
 
     # Finds the electrostatics solution
     # Returns the time it took
@@ -1186,6 +1186,7 @@ class video:
         
     def __del__(self):
         self.finish()
+        super().__del__()
         
     # Retrieve the fig and ax
     def get_fig(self):
@@ -1272,31 +1273,153 @@ class video:
         
 
 # A class to take samples of a simulation every timestep
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
 class sampler:
     def __init__(self, Sim):
-        pass
+        # Make sure it has gotten a simulation
+        if not isinstance(Sim, sim):
+            raise Exception(f"Sim has wrong type, it is {str(type(Sim)):s} but it should be {str(sim):s}")
+        
+        # Set the simulation
+        self.__sim = Sim
+        
+        # Add the sampler to the simulation
+        self.__sim.add_sampler(self)
+        
+        # Initialise the data
+        self.__data = []
+        self.__t = []
     
     # Take one sample
     #
     # Sim:      The simulation the sample is to be taken from
-    def sample(self, sim):
-        pass
+    def sample(self, Sim):
+        self.__t += [Sim.get_t]
     
     # Retrieves all the samples stored
     def get_samples(self):
-        pass
+        return self.__t, self.__data
     
 
-# A sampler which samples a field each timestep
-class sampler_field(sampler):
-    pass
-
-
-# A sampler which samples a list of numbers each time step (vector)
-class sampler_vector(sampler):
-    pass
-
-
 # A sampler which samples numbers each timestep
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
 class sampler_number(sampler):
+    # Plots the data with t on the x-axis
+    #
+    # fmt:          The fmt data for the plot, this is the type of curve and colour
+    # title:        The title of the plot
+    # xlabel:       The xlabel of the plot
+    # ylabel:       The ylabel of the plot
+    # label:        The label of the curve
+    # legend:       Set to True if you want a legend
+    # figsize:      The figure size, if ax is given this is ignored
+    # dpi:          The resolution of the plot, if ax is given this is ignored
+    # ax:           The ax to plot on, if None it will create its own
+    def plot(self, fmt = "-", title = "", xlabel = "", ylabel = "", label = "", legend = False, figsize = (10, 10), dpi = 100, ax = None):
+        # Create the plot
+        if ax is None:
+            fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
+        
+        else:
+            fig = None
+        
+        # Plot the data
+        ax.plot(self.__t, self.__data, fmt, label = label)
+        
+        # Set labels
+        ax.set_title(title)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        
+        # Add legend
+        if legend is True:
+            ax.legend()
+            
+        # Return the figure
+        return fig, ax
+
+
+# A sampler which samples a field each timestep
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+class sampler_field(sampler):
+    # Creates a video using the data it has samples
+    #
+    # Name:         The name of the video file to be saved
+    # FPS:          How many frames per second the video should have
+    # figsize:      The size of the figure in
+    # dpi:          The resolution of the figure
+    def make_video(self, Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100):
+        # Create the video object
+        self.__video = video(Name, FPS = FPS, figsize = figsize, dpi = dpi)
+        
+        # Create the video
+        while self.__update_video() is True:
+            self.__video.update()
+            
+        # Finish the video
+        self.__video.finish()
+        
+        
+    # Create the next frame of the video, it should return True when successful
+    # and False when there are no more frames to play
+    def __update_video(self):
+        pass
+        
+
+# A sampler which samples a field in 2D
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+class sampler_field_scalar(sampler_field):
+    def __init__(self, Sim, Points):
+        super().__init__(Sim)
+        
+        # Make sure the points are of correct type
+        if not isinstance(Points, np.ndarray):
+            raise Exception(f"Points has wrong type, it is {str(type(Points)):s} but it should be {str(np.ndarray):s}")
+        
+        # Save the points
+        self.__points = Points
+        
+
+# A sampler which samples a field along a line
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# x_hat:    The x direction, should have unit norm
+# y_hat:    The y direction, should have unit norm
+class sampler_field_vector(sampler_field):
+    def __init__
+
+
+# A sampler to sample scalar fields in 2D
+class sampler_field2D_scalar(sampler_field_scalar):
+    pass
+
+
+# A sampler to sample scalar fields in 1D
+class sampler_field1D_scalar(sampler_field_scalar):
+    pass
+
+
+# A sampler to sample vector fields in 2D
+class sampler_field2D_vector(sampler_field_vector):
+    pass
+
+
+# A sampler to sample vector fields in 1D
+class sampler_field1D_vector(sampler_field_vector):
+    pass
+
+
+# A list of standard samplers which can be imported
+
+# Samples a component of the A-field (vector potential or electric potential)
+#
+# comp: The component of the potential to sample
+# points
+class sampler_potential2D(sampler_field2D_scalar):
     pass
