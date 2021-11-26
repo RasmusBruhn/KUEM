@@ -8,19 +8,19 @@ plt.close("all")
 # Define some constants
 MaxCurrent = 1
 Frequency = 0.2
-N = np.array([199, 199, 1], dtype = int)
+N = np.array([99, 99, 1], dtype = int)
 delta_x = np.array([25, 25, 1])
 x0 = np.array([-12.5, -12.5, 0])
 FPS = 30
 Speed = 2
-Delta_t = 50
-TimeConstant = 10
+Delta_t = 25
+TimeConstant = 5
 Steps = int(FPS / Speed * Delta_t)
 SubSteps = int(TimeConstant * np.max(N) / Steps) + 1
 dt = Delta_t / (Steps * SubSteps)
 Exact = True
 Progress = 5
-Name = "AlternatingCurrentA"
+Name = "AlternatingTestA"
 
 # Define the current
 def J(dx, N, x0, c, mu0):
@@ -42,7 +42,7 @@ def J(dx, N, x0, c, mu0):
     return get_J
 
 # Setup the simulation
-Sim = EM.sim(N, dt = dt, delta_x = delta_x, x0 = x0, J = J, boundaries = [["flat", "flat"], ["flat", "flat"], "periodic"])
+Sim = EM.sim(N, dt = dt, delta_x = delta_x, x0 = x0, J = J, boundaries = [["open", "open"], ["open", "open"], "periodic"])
 
 # Solve the statics problem
 #print("Solving starting conditions")

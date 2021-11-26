@@ -437,47 +437,55 @@ def get_boundaries_open(N, Coordinate, Dir):
     OffPos1 = np.prod(N[:Coordinate])
     OffPos2 = 2 * np.prod(N[:Coordinate])
     OffPos3 = 3 * np.prod(N[:Coordinate])
+    OffPos4 = 4 * np.prod(N[:Coordinate])
     
     # Create a tile
     Tile = np.zeros(np.prod(N[:Coordinate + 1]))
     OffTile1 = np.zeros(np.prod(N[:Coordinate + 1]))
     OffTile2 = np.zeros(np.prod(N[:Coordinate + 1]))
     OffTile3 = np.zeros(np.prod(N[:Coordinate + 1]))
+    OffTile4 = np.zeros(np.prod(N[:Coordinate + 1]))
 
     # Add the ones
     if Dir == 0:
-        Tile[:np.prod(N[:Coordinate])] = 2
-        OffTile1[:np.prod(N[:Coordinate])] = -1
-        OffTile2[:np.prod(N[:Coordinate])] = 0           
-        OffTile3[:np.prod(N[:Coordinate])] = 0                
-        
+        Tile[:np.prod(N[:Coordinate])] = 5
+        OffTile1[:np.prod(N[:Coordinate])] = -10
+        OffTile2[:np.prod(N[:Coordinate])] = -6
+        OffTile3[:np.prod(N[:Coordinate])] = -5
+        OffTile4[:np.prod(N[:Coordinate])] = 1
+
     else:
-        Tile[-np.prod(N[:Coordinate]):] = 2
-        OffTile1[-np.prod(N[:Coordinate]):] = -1
-        OffTile2[-np.prod(N[:Coordinate]):] = 0
-        OffTile3[-np.prod(N[:Coordinate]):] = 0
+        Tile[-np.prod(N[:Coordinate]):] = 5
+        OffTile1[-np.prod(N[:Coordinate]):] = -10
+        OffTile2[-np.prod(N[:Coordinate]):] = -6
+        OffTile3[-np.prod(N[:Coordinate]):] = -5
+        OffTile4[-np.prod(N[:Coordinate]):] = 1
         OffPos1 *= -1
         OffPos2 *= -1
         OffPos3 *= -1
+        OffPos4 *= -1
         
     # Create the diagonal
     Diag = np.tile(Tile, np.prod(N[Coordinate + 1:]))
     OffDiag1 = np.tile(OffTile1, np.prod(N[Coordinate + 1:]))
     OffDiag2 = np.tile(OffTile2, np.prod(N[Coordinate + 1:]))
     OffDiag3 = np.tile(OffTile3, np.prod(N[Coordinate + 1:]))
+    OffDiag4 = np.tile(OffTile4, np.prod(N[Coordinate + 1:]))
     
     if Dir == 0:
         OffDiag1 = OffDiag1[:-np.prod(N[:Coordinate])]
         OffDiag2 = OffDiag2[:-2 * np.prod(N[:Coordinate])]
         OffDiag3 = OffDiag3[:-2 * np.prod(N[:Coordinate])]
+        OffDiag4 = OffDiag4[:-2 * np.prod(N[:Coordinate])]
        
     else:
         OffDiag1 = OffDiag1[np.prod(N[:Coordinate]):]
         OffDiag2 = OffDiag2[2 * np.prod(N[:Coordinate]):]
         OffDiag3 = OffDiag3[2 * np.prod(N[:Coordinate]):]
+        OffDiag4 = OffDiag4[2 * np.prod(N[:Coordinate]):]
 
     # Create the boundary
-    Bound = sparse.diags([Diag, OffDiag1, OffDiag2, OffDiag3], [0, OffPos1, OffPos2, OffPos3], format = "csr") * 0.9
+    Bound = sparse.diags([Diag, OffDiag1, OffDiag2, OffDiag3, OffDiag4], [0, OffPos1, OffPos2, OffPos3, OffPos4], format = "csr")
             
     return Bound
 
@@ -1199,7 +1207,6 @@ class video:
         
     def __del__(self):
         self.finish()
-        super().__del__()
         
     # Retrieve the fig and ax
     def get_fig(self):
