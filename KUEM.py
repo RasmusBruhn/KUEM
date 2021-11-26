@@ -183,17 +183,27 @@ def sample_values(Field, Points, dx, N, x0):
 # dx, N and x0 are default arguments
 # Field:        The field to sample values from in vector from, this has to be a vector field
 # Points:       An array with the x,y,z coordinates in the first axis
-# x_hat:        A 3 long array for the direction of the x axis
-# y_hat:        A 3 long array for the direction of the y axis
-def sample_vectors(Field, Points, x_hat, y_hat, dx, N, x0):
+# hat:          An array defining the directions of the hat vectors, it should have a shape of type 
+#               (SomeShape, 3, N) where (SomeShape can be any shape with len(SomeShape) <= len(Points.shape))
+#               if it is < then it will be changed to shape (SomeShape, 1, 1...) until it is long enough.
+#               N is the number of hat vectors, it can also have shape (SomeShape, 3) but then you should set single = True
+# single:       Set to True if you have no N dimension on the hat array
+def sample_vectors(Field, Points, hat, dx, N, x0, single = False):
     # Get the 3D vectors
     FieldValues = sample_values(Field, Points, dx, N, x0)
     
+    # Change hat if single is True
+    if single is True:
+        hat = hat.reshape(hat.shape + (1,))
+    
     # Find the x and y axis components
-    vx = np.sum(FieldValues * x_hat.reshape((1,) * (len(FieldValues.shape) - len(x_hat.shape)) + x_hat.shape), axis = -1)
-    vy = np.sum(FieldValues * y_hat.reshape((1,) * (len(FieldValues.shape) - len(y_hat.shape)) + y_hat.shape), axis = -1)
+    v = np.sum(FieldValues.reshape(FieldValues.shape + (1,)) * hat.reshape((1,) * (len(FieldValues.shape) - len(hat.shape) + 1) + hat.shape), axis = -2)
 
-    return vx, vy
+    # Reshape back if singe is True
+    if single is True:
+        v = v.reshape(v.shape[:-1])
+
+    return v
 
 
 # A default scale used in the scalar plotter
@@ -1150,10 +1160,13 @@ class sim:
     #
     # Field:        The field to sample values from in vector from, this has to be a vector field
     # Points:       An array with the x,y,z coordinates in the first axis
-    # x_hat:        A 3 long array for the direction of the x axis
-    # y_hat:        A 3 long array for the direction of the y axis
-    def sample_vectors(self, Field, Points, x_hat, y_hat):
-        return sample_vectors(Field, Points, x_hat, y_hat, self.__dx, self.__N, self.__x0)
+    # hat:          An array defining the directions of the hat vectors, it should have a shape of type 
+    #               (SomeShape, 3, N) where (SomeShape can be any shape with len(SomeShape) <= len(Points.shape))
+    #               if it is < then it will be changed to shape (SomeShape, 1, 1...) until it is long enough.
+    #               N is the number of hat vectors, it can also have shape (SomeShape, 3) but then you should set single = True
+    # single:       Set to True if you have no N dimension on the hat array
+    def sample_vectors(self, Field, Points, hat, single = False):
+        return sample_vectors(Field, Points, hat, self.__dx, self.__N, self.__x0, single = single)
         
     # Adds a sampler to the simulation
     #
@@ -1295,7 +1308,11 @@ class sampler:
     #
     # Sim:      The simulation the sample is to be taken from
     def sample(self, Sim):
-        self.__t += [Sim.get_t]
+        self.__t.append(Sim.get_t)
+        
+    # Defines what to sample
+    def __sample_data(self):
+        pass
     
     # Retrieves all the samples stored
     def get_samples(self):
@@ -1339,12 +1356,62 @@ class sampler_number(sampler):
             
         # Return the figure
         return fig, ax
+    
+    # Take one sample
+    #
+    # Sim:      The simulation the sample is to be taken from
+    def sample(self, Sim):
+        super().sample(Sim)
+        
+        # Get the number
+        self.__data.append(self.__sample_data())
 
 
 # A sampler which samples a field each timestep
 #
 # Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# hat:      An array defining the directions of the hat vector, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
+# single:   True if you don't include the N-dimension in the hat vector
 class sampler_field(sampler):
+    def __init__(self, Sim, Points, hat = None, single = False):
+        super().__init__(Sim)
+        
+        # Make sure points are of correct type
+        if not isinstance(Points, np.ndarray):
+            raise Exception(f"Points has wrong type, it is {str(type(Points)):s} but it should be {str(np.ndarray):s}")
+
+        # Save the points
+        self.__points = Points
+
+        # Make sure the hat is None or an array
+        if not (isinstance(hat, np.ndarray) or hat is None):
+            raise Exception(f"hat has wrong type, it is {str(type(hat)):s} but it should be {str(np.ndarray):s} or None")
+            
+        # Save the hat
+        self.__hat = hat
+        
+        # Make sure single is of correct type
+        if not isinstance(single, bool):
+            raise Exception(f"single has wrong type, it is {str(type(single)):s} but it should be {str(bool):s}")
+        
+        # Save the single
+        self.__single = single
+        
+        
+    def sample(self, Sim):
+        super().sample(Sim)
+        
+        # Sample from a scalar field
+        if self.__hat is None:
+            self.__data.append(self.__sim.sample_values(self.__sample_data(), self.__points))
+            
+        # Sample from a vector
+        else:
+            self.__data.append(self.__sim.sample_vectors(self.__sample_data(), self.__points, self.__hat, single = self.__single))
+        
+        
     # Creates a video using the data it has samples
     #
     # Name:         The name of the video file to be saved
@@ -1373,53 +1440,61 @@ class sampler_field(sampler):
 #
 # Sim:      The simulation to sample from, it will automatically add this sampler to the sim
 # Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# hat:      An array defining the directions of the hat vector, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
 class sampler_field_scalar(sampler_field):
-    def __init__(self, Sim, Points):
-        super().__init__(Sim)
+    def __init__(self, Sim, Points, hat = None):
+        super().__init__(Sim, Points, hat = hat, single = True)
         
-        # Make sure the points are of correct type
-        if not isinstance(Points, np.ndarray):
-            raise Exception(f"Points has wrong type, it is {str(type(Points)):s} but it should be {str(np.ndarray):s}")
         
-        # Save the points
-        self.__points = Points
-        
+    # Plot the scalar field
+    def __update_video(self):
+        pass
 
 # A sampler which samples a field along a line
 #
 # Sim:      The simulation to sample from, it will automatically add this sampler to the sim
 # Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
-# x_hat:    The x direction, should have unit norm
-# y_hat:    The y direction, should have unit norm
+# x_hat:    The x direction, should have unit norm, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors.
+# y_hat:    The y direction, should have unit norm, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors, it should be the same shape as for x_hat
 class sampler_field_vector(sampler_field):
-    def __init__
-
-
-# A sampler to sample scalar fields in 2D
-class sampler_field2D_scalar(sampler_field_scalar):
-    pass
-
-
-# A sampler to sample scalar fields in 1D
-class sampler_field1D_scalar(sampler_field_scalar):
-    pass
-
-
-# A sampler to sample vector fields in 2D
-class sampler_field2D_vector(sampler_field_vector):
-    pass
+    def __init__(self, Sim, Points, x_hat, y_hat):
+        # Collect the hats
+        hat = np.append(x_hat.reshape(x_hat.shape + (1,)), y_hat.reshape(y_hat.shape + (1,)), axis = -1)
+        
+        super().__init__(Sim, Points, hat = hat, single = False)
 
 
 # A sampler to sample vector fields in 1D
-class sampler_field1D_vector(sampler_field_vector):
-    pass
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# hat:      An array defining the directions of the hat vector, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
+class sampler_field_line(sampler_field):
+    def __init__(self, Sim, Points, hat = None):
+        super().__init__(Sim, Points, hat = hat, single = True)
 
 
 # A list of standard samplers which can be imported
 
 # Samples a component of the A-field (vector potential or electric potential)
 #
-# comp: The component of the potential to sample
-# points
-class sampler_potential2D(sampler_field2D_scalar):
-    pass
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# comp:     The component of the A vector to sample
+class sampler_potential2D(sampler_field_scalar):
+    def __init__(self, Sim, Points, comp):
+        super().__init__(Sim, Points)
+        
+        # Make sure comp has correct type
+        if not isinstance(comp, int):
+            raise Exception(f"comp has wrong type, it is {str(type(comp)):s} but it should be {str(int)}")
+        
+        # Set the component
+        self.__comp = comp
+    
+    def __sample_data(self):
+        return self.__sim.get_A(self.__comp)
