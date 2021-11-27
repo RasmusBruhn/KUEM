@@ -263,13 +263,15 @@ def update_plot_scalar(Plot, Values, scale = default_scalar_scale):
 # figsize:      The size of the figure if ax is not given
 # dpi:          The resolution of the figure if ax is not given
 # fmt:          The fmt used for plotting
-def plot_1D(Values, extent = [0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-", label = ""):
+def plot_1D(Values, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-", label = ""):
     # Create figure
     if ax is None:
         fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
         
     # Plot graph
     Plot = ax.plot(np.linspace(extent[0], extent[1], len(Values)), Values, fmt, label = label)
+    ax.set_xlim(extent[0], extent[1])
+    ax.set_ylim(extent[2], extent[3])
     
     return fig, ax, Plot[0]
 
@@ -448,18 +450,18 @@ def get_boundaries_open(N, Coordinate, Dir):
 
     # Add the ones
     if Dir == 0:
-        Tile[:np.prod(N[:Coordinate])] = 5
-        OffTile1[:np.prod(N[:Coordinate])] = -10
-        OffTile2[:np.prod(N[:Coordinate])] = -6
-        OffTile3[:np.prod(N[:Coordinate])] = -5
-        OffTile4[:np.prod(N[:Coordinate])] = 1
+        Tile[:np.prod(N[:Coordinate])] = 2
+        OffTile1[:np.prod(N[:Coordinate])] = -1
+        OffTile2[:np.prod(N[:Coordinate])] = 0
+        OffTile3[:np.prod(N[:Coordinate])] = 0
+        OffTile4[:np.prod(N[:Coordinate])] = 0
 
     else:
-        Tile[-np.prod(N[:Coordinate]):] = 5
-        OffTile1[-np.prod(N[:Coordinate]):] = -10
-        OffTile2[-np.prod(N[:Coordinate]):] = -6
-        OffTile3[-np.prod(N[:Coordinate]):] = -5
-        OffTile4[-np.prod(N[:Coordinate]):] = 1
+        Tile[-np.prod(N[:Coordinate]):] = 2
+        OffTile1[-np.prod(N[:Coordinate]):] = -1
+        OffTile2[-np.prod(N[:Coordinate]):] = 0
+        OffTile3[-np.prod(N[:Coordinate]):] = 0
+        OffTile4[-np.prod(N[:Coordinate]):] = 0
         OffPos1 *= -1
         OffPos2 *= -1
         OffPos3 *= -1
@@ -1185,7 +1187,7 @@ class sim:
     # Run all the samplers
     def run_samplers(self):
         for sampler in self.__samplers:
-            sampler.sample(self)
+            sampler.sample()
 
     
 # Creates a video
@@ -1260,20 +1262,44 @@ class video:
         # Plot
         _, _, self.__plot = plot_scalar(Values, extent = extent, scale = scale, fig = self.__fig, ax = self.__ax, cmap = cmap, clim = clim)
     
+    # Updates a scalar field
+    #
+    # Values:       The 2D array of values to plot
     def update_scalar(self, Values):
         update_plot_scalar(self.__plot, Values, scale = self.__scale)
     
-    def plot_1D(self, Values, extent = [0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-", label = ""):
+    # Plots a 1D curve
+    #
+    # Values:       The 1D array of values to plot
+    # extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
+    # scale:        Function to scale the values of the field
+    # fmt:          The fmt data of the plot, this is the colour and type of plot
+    # label:        The label of the curve
+    def plot_1D(self, Values, extent = [0, 1, 0, 1], scale = default_scalar_scale, fmt = "-", label = ""):
         # Save scale
         self.__scale = scale
                 
         # Plot
         _, _, self.__plot = plot_1D(Values, extent = extent, scale = scale, fig = self.__fig, ax = self.__ax, fmt = fmt, label = label)
     
+    # Updates a 1D curve
+    #
+    # Values:       The 1D array of values to plot
     def update_1D(self, Values):
         update_plot_1D(self.__plot, Values, scale = self.__scale)
     
-    def plot_vector(self, vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None, cutoff = 0):
+    # Plots a vector field
+    #
+    # vx:           The x-component of the vectors
+    # vy:           The y-component of the vectors
+    # extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
+    # scale:        Function to scale the values of the field
+    # cmap:         The colour map to plot the scalar field with
+    # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the field,
+    #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
+    #               values in the field
+    # cutoff:       Determines a cutoff point where if vectors are shorter than the length of the longest vector times cutoff, then it is not shown
+    def plot_vector(self, vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, cmap = "coolwarm", clim = None, cutoff = 0):
         # Save scale
         self.__scale = scale
         
@@ -1287,7 +1313,10 @@ class video:
         # Plot
         _, _, self.__plot = plot_vector(vx, vy, extent = extent, scale = scale, fig = self.__fig, ax = self.__ax, cmap = cmap, clim = clim, cutoff = cutoff)
         
-    
+    # Updates a vector field
+    #
+    # vx:           The x-component of the vectors
+    # vy:           The y-component of the vectors
     def update_vector(self, vx, vy):
         update_plot_vector(self.__plot, vx, vy, scale = self.__scale, cutoff = self.__cutoff)
         
@@ -1365,10 +1394,8 @@ class sampler_number(sampler):
         return fig, ax
     
     # Take one sample
-    #
-    # Sim:      The simulation the sample is to be taken from
-    def sample(self, Sim):
-        super().sample(Sim)
+    def sample(self):
+        super().sample(self.__sim)
         
         # Get the number
         self.__data.append(self.__sample_data())
@@ -1405,10 +1432,10 @@ class sampler_field(sampler):
         
         # Save the single
         self.__single = single
-        
-        
-    def sample(self, Sim):
-        super().sample(Sim)
+    
+    # Takes a sample from the simulation
+    def sample(self):
+        super().sample(self)
         
         # Sample from a scalar field
         if self.__hat is None:
@@ -1429,17 +1456,30 @@ class sampler_field(sampler):
         # Create the video object
         self.__video = video(Name, FPS = FPS, figsize = figsize, dpi = dpi)
         
+        # Start the video
+        self.__start_video(self.__t[0], self.__data[0])
+        self.__video.update()
+        
         # Create the video
-        while self.__update_video() is True:
+        for t, data in zip(self.__t[1:], self.__data[1:]):
+            self.__update_video()
             self.__video.update()
             
         # Finish the video
         self.__video.finish()
-        
-        
-    # Create the next frame of the video, it should return True when successful
-    # and False when there are no more frames to play
-    def __update_video(self):
+                
+    # Creates the first frame of a video
+    #
+    # t:        The timestamp of the frame
+    # Data:     The data for the frame
+    def __start_video(self, t, Data):
+        pass
+    
+    # Create the next frame of the video
+    #
+    # t:        The timestamp of the frame
+    # Data:     The data for the frame
+    def __update_video(self, t, Data):
         pass
         
 
@@ -1453,12 +1493,44 @@ class sampler_field_scalar(sampler_field):
     def __init__(self, Sim, Points, hat = None):
         super().__init__(Sim, Points, hat = hat, single = True)
         
+    # Creates a video using the data it has sampled
+    #
+    # Name:         The name of the video file to be saved
+    # FPS:          How many frames per second the video should have
+    # figsize:      The size of the figure in
+    # dpi:          The resolution of the figure
+    # extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
+    # scale:        Function to scale the values of the field
+    # cmap:         The colour map to plot the scalar field with
+    # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the field,
+    #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
+    #               values in the field
+    def make_video(self, Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100, extent = [0, 1, 0, 1], scale = default_scalar_scale, cmap = "coolwarm", clim = None):
+        super().make_video(Name, FPS = FPS, figsize = figsize, dpi = dpi)
         
-    # Plot the scalar field
-    def __update_video(self):
-        pass
+        # Save the rest of the data
+        self.__extent = extent
+        self.__scale = scale
+        self.__cmap = cmap
+        self.__clim = clim
+        
+    # Creates the first frame of a video
+    #
+    # t:        The timestamp of the frame
+    # Data:     The data for the frame
+    def __start_video(self, t, Data):
+        # Plot the data
+        self.video.plot_scalar(Data, extent = self.__extent, scale = self.__scale, cmap = self.__cmap, clim = self.__clim)
+    
+    # Create the next frame of the video
+    #
+    # t:        The timestamp of the frame
+    # Data:     The data for the frame
+    def __update_video(self, t, Data):
+        # Update the data
+        self.video.update_scalar(Data)
 
-# A sampler which samples a field along a line
+# A sampler which samples a vector field in 2D
 #
 # Sim:      The simulation to sample from, it will automatically add this sampler to the sim
 # Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
@@ -1473,8 +1545,47 @@ class sampler_field_vector(sampler_field):
         
         super().__init__(Sim, Points, hat = hat, single = False)
 
+    # Creates a video using the data it has sampled
+    #
+    # Name:         The name of the video file to be saved
+    # FPS:          How many frames per second the video should have
+    # figsize:      The size of the figure in
+    # dpi:          The resolution of the figure
+    # extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
+    # scale:        Function to scale the values of the field
+    # cmap:         The colour map to plot the scalar field with
+    # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the field,
+    #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
+    #               values in the field
+    # cutoff:       Determines a cutoff point where if vectors are shorter than the length of the longest vector times cutoff, then it is not shown
+    def make_video(self, Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100, extent = [0, 1, 0, 1], scale = default_scalar_scale, cmap = "coolwarm", clim = None, cutoff = 0):
+        super().make_video(Name, FPS = FPS, figsize = figsize, dpi = dpi)
+        
+        # Save the rest of the data
+        self.__extent = extent
+        self.__scale = scale
+        self.__cmap = cmap
+        self.__clim = clim
+        self.__cutoff = cutoff
+        
+    # Creates the first frame of a video
+    #
+    # t:        The timestamp of the frame
+    # Data:     The data for the frame
+    def __start_video(self, t, Data):
+        # Plot the data
+        self.video.plot_vector(Data[:, :, 0], Data[:, :, 1], extent = self.__extent, scale = self.__scale, cmap = self.__cmap, clim = self.__clim, cutoff = self.__cutoff)
+    
+    # Create the next frame of the video
+    #
+    # t:        The timestamp of the frame
+    # Data:     The data for the frame
+    def __update_video(self, t, Data):
+        # Update the data
+        self.video.update_vector(Data[:, :, 0], Data[:, :, 1])
 
-# A sampler to sample vector fields in 1D
+
+# A sampler to sample a field along a line
 #
 # Sim:      The simulation to sample from, it will automatically add this sampler to the sim
 # Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
@@ -1483,6 +1594,41 @@ class sampler_field_vector(sampler_field):
 class sampler_field_line(sampler_field):
     def __init__(self, Sim, Points, hat = None):
         super().__init__(Sim, Points, hat = hat, single = True)
+
+    # Creates a video using the data it has sampled
+    #
+    # Name:         The name of the video file to be saved
+    # FPS:          How many frames per second the video should have
+    # figsize:      The size of the figure in
+    # dpi:          The resolution of the figure
+    # extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
+    # scale:        Function to scale the values of the field
+    # fmt:          The fmt data of the plot, this is the colour and type of plot
+    # label:        The label of the curve
+    def make_video(self, Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100, extent = [0, 1, 0, 1], scale = default_scalar_scale, fmt = "", label = ""):
+        super().make_video(Name, FPS = FPS, figsize = figsize, dpi = dpi)
+        
+        # Save the rest of the data
+        self.__extent = extent
+        self.__scale = scale
+        self.__fmt = fmt
+        self.__label = label
+        
+    # Creates the first frame of a video
+    #
+    # t:        The timestamp of the frame
+    # Data:     The data for the frame
+    def __start_video(self, t, Data):
+        # Plot the data
+        self.video.plot_1D(Data, extent = self.__extent, scale = self.__scale, fmt = self.__fmt, label = self.__label)
+    
+    # Create the next frame of the video
+    #
+    # t:        The timestamp of the frame
+    # Data:     The data for the frame
+    def __update_video(self, t, Data):
+        # Update the data
+        self.video.update_1D(Data)
 
 
 # A list of standard samplers which can be imported
