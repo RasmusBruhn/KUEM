@@ -1638,7 +1638,7 @@ class sampler_field_line(sampler_field):
 # Sim:      The simulation to sample from, it will automatically add this sampler to the sim
 # Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
 # comp:     The component of the A vector to sample
-class sampler_potential2D(sampler_field_scalar):
+class sampler_V(sampler_field_scalar):
     def __init__(self, Sim, Points, comp):
         super().__init__(Sim, Points)
         
