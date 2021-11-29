@@ -327,12 +327,17 @@ def plot_vector(vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig
         
     clim = scale(clim)
 
+    # Make sure it can plot
+    if np.all(vAbs == 0):
+        vAbs[int(vAbs.shape[0] / 2), int(vAbs.shape[1] / 2)] = 1
+        vy[int(vAbs.shape[0] / 2), int(vAbs.shape[1] / 2)] = 1
+    
     vAbs[vAbs == 0] = np.nan
     
     # Normalize lengths
     vx = vx / vAbs
     vy = vy / vAbs
-
+    
     # Create figure
     if ax is None:
         fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
@@ -356,6 +361,10 @@ def update_plot_vector(Plot, vx, vy, scale = default_scalar_scale, cutoff = 0):
 
     # Make cutoff        
     vAbs[vAbs < cutoff] = 0
+    
+    if np.all(vAbs == 0):
+        vAbs[int(vAbs.shape[0] / 2), int(vAbs.shape[1] / 2)] = 1
+        vy[int(vAbs.shape[0] / 2), int(vAbs.shape[1] / 2)] = 1
 
     # Normalise the lengths
     vAbs[vAbs == 0] = np.nan
@@ -1074,31 +1083,31 @@ class sim:
     
     # Get E-field
     def get_E(self):
-        if self.__E is not None:
-            return self.__E
+        if self.__E is None:
+            self.__E = calc_E(self.__A[:, 0] * self.__c, self.__grad, self.__C(self.__t)[:, :, :, 0])
         
-        return calc_E(self.__A[:, 0] * self.__c, self.__grad, self.__C(self.__t)[:, :, :, 0])
+        return self.__E
     
     # Get the B-field
     def get_B(self):
-        if self.__B is not None:
-            return self.__B
+        if self.__B is None:
+            self.__B = calc_B(self.__A[:, 1:], self.__curl, self.__C(self.__t)[:, :, :, 1:])
         
-        return calc_B(self.__A[:, 1:], self.__curl, self.__C(self.__t)[:, :, :, 1:])
+        return self.__B
     
     # Get the Poynting vector field
     def get_S(self):
-        if self.__S is not None:
-            return self.__S
+        if self.__S is None:
+            self.__S = calc_S(self.get_E(), self.get_B(), self.__mu0)
         
-        return calc_S(self.get_E(), self.get_B(), self.__mu0)
+        return self.__S
 
     # Get the energy density
     def get_u(self):
-        if self.__u is not None:
-            return self.__u
+        if self.__u is None:
+            self.__u = calc_u(self.get_E(), self.get_B(), self.__mu0, self.__c)
         
-        return calc_u(self.get_E(), self.get_B(), self.__mu0, self.__c)
+        return self.__u
 
     # Get the charge density
     def get_Rho(self):
@@ -1134,27 +1143,39 @@ class sim:
         # Run samplers
         self.run_samplers()
         
-        return Time2 - Time1
-    
-    def step(self, count = 1, exact = False):
-        Time1 = time.time()
-        
-        # Solve it
-        for _ in range(count):
-            self.__A, self.__dAdt = solve_dynamics(self.__A, self.__dAdt, self.__J(self.__t + self.__dt / 2), self.__lapl, self.__C(self.__t + self.__dt / 2), self.__dx, self.__dt, self.__c, self.__mu0, self.__nDyn, exact = exact)
-            
-            # Add to the time
-            self.__t += self.__dt
-            
-        # Calculate ellapsed time
-        Time2 = time.time()
-        
-        # Reset the fields
+        # Reset derived values
         self.__reset_derived()
         
-        # Run samplers
-        self.run_samplers()
-        
+        return Time2 - Time1
+    
+    def dynamics(self, Count, SubCount, exact = False, progress = False):
+        Time1 = time.time()
+        Time = OriginalTime = Time1
+
+        # Go through all of the steps
+        for n in range(Count):
+            # Show progress
+            NewTime = time.time()
+            if progress is not False and NewTime > Time + progress:
+                Time = NewTime
+                print("%.2g s remaining" %((Time - OriginalTime) / n * (Count - n)))
+
+            # Do the substeps
+            for _ in range(SubCount):
+                self.__A, self.__dAdt = solve_dynamics(self.__A, self.__dAdt, self.__J(self.__t + self.__dt / 2), self.__lapl, self.__C(self.__t + self.__dt / 2), self.__dx, self.__dt, self.__c, self.__mu0, self.__nDyn, exact = exact)
+                
+                # Add to the time
+                self.__t += self.__dt
+                
+            # Run samplers
+            self.run_samplers()
+            
+            # Reset the fields
+            self.__reset_derived()
+
+        # Calculate ellapsed time
+        Time2 = time.time()
+                        
         return Time2 - Time1
     
     # Samples values at specific points from a field, interpolate to get smooth values from field
@@ -1204,7 +1225,7 @@ class video:
         plt.ion()
         
         # Create video
-        self.__v = cv2.VideoWriter(Name + ".avi", cv2.VideoWriter_fourcc(*'DIVX'), FPS, tuple((figsize * dpi).astype(int)))
+        self.__v = cv2.VideoWriter(Name, cv2.VideoWriter_fourcc(*'DIVX'), FPS, tuple((figsize * dpi).astype(int)))
         self.__active = True
         
     def __del__(self):
@@ -1331,28 +1352,28 @@ class sampler:
             raise Exception(f"Sim has wrong type, it is {str(type(Sim)):s} but it should be {str(sim):s}")
         
         # Set the simulation
-        self.__sim = Sim
-        
+        self.sim = Sim
+
         # Add the sampler to the simulation
-        self.__sim.add_sampler(self)
-        
+        self.sim.add_sampler(self)
+
         # Initialise the data
-        self.__data = []
-        self.__t = []
+        self.data = []
+        self.t = []
     
     # Take one sample
     #
     # Sim:      The simulation the sample is to be taken from
-    def sample(self, Sim):
-        self.__t.append(Sim.get_t)
+    def sample(self):
+        self.t.append(self.sim.get_t())
         
     # Defines what to sample
-    def __sample_data(self):
+    def sample_data(self):
         pass
     
     # Retrieves all the samples stored
     def get_samples(self):
-        return self.__t, self.__data
+        return self.t, self.data
     
 
 # A sampler which samples numbers each timestep
@@ -1379,7 +1400,7 @@ class sampler_number(sampler):
             fig = None
         
         # Plot the data
-        ax.plot(self.__t, self.__data, fmt, label = label)
+        ax.plot(self.t, self.data, fmt, label = label)
         
         # Set labels
         ax.set_title(title)
@@ -1395,10 +1416,10 @@ class sampler_number(sampler):
     
     # Take one sample
     def sample(self):
-        super().sample(self.__sim)
+        super().sample()
         
         # Get the number
-        self.__data.append(self.__sample_data())
+        self.data.append(self.sample_data())
 
 
 # A sampler which samples a field each timestep
@@ -1417,33 +1438,33 @@ class sampler_field(sampler):
             raise Exception(f"Points has wrong type, it is {str(type(Points)):s} but it should be {str(np.ndarray):s}")
 
         # Save the points
-        self.__points = Points
+        self.points = Points
 
         # Make sure the hat is None or an array
         if not (isinstance(hat, np.ndarray) or hat is None):
             raise Exception(f"hat has wrong type, it is {str(type(hat)):s} but it should be {str(np.ndarray):s} or None")
             
         # Save the hat
-        self.__hat = hat
+        self.hat = hat
         
         # Make sure single is of correct type
         if not isinstance(single, bool):
             raise Exception(f"single has wrong type, it is {str(type(single)):s} but it should be {str(bool):s}")
         
         # Save the single
-        self.__single = single
+        self.single = single
     
     # Takes a sample from the simulation
     def sample(self):
-        super().sample(self)
-        
+        super().sample()
+
         # Sample from a scalar field
-        if self.__hat is None:
-            self.__data.append(self.__sim.sample_values(self.__sample_data(), self.__points))
+        if self.hat is None:
+            self.data.append(self.sim.sample_values(self.sample_data(), self.points).copy())
             
         # Sample from a vector
         else:
-            self.__data.append(self.__sim.sample_vectors(self.__sample_data(), self.__points, self.__hat, single = self.__single))
+            self.data.append(self.sim.sample_vectors(self.sample_data(), self.points, self.hat, single = self.single).copy())
         
         
     # Creates a video using the data it has samples
@@ -1454,32 +1475,32 @@ class sampler_field(sampler):
     # dpi:          The resolution of the figure
     def make_video(self, Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100):
         # Create the video object
-        self.__video = video(Name, FPS = FPS, figsize = figsize, dpi = dpi)
+        self.video = video(Name, FPS = FPS, figsize = figsize, dpi = dpi)
         
         # Start the video
-        self.__start_video(self.__t[0], self.__data[0])
-        self.__video.update()
+        self.start_video(self.t[0], self.data[0])
+        self.video.update()
         
         # Create the video
-        for t, data in zip(self.__t[1:], self.__data[1:]):
-            self.__update_video()
-            self.__video.update()
+        for t, data in zip(self.t[1:], self.data[1:]):
+            self.update_video(t, data)
+            self.video.update()
             
         # Finish the video
-        self.__video.finish()
+        self.video.finish()
                 
     # Creates the first frame of a video
     #
     # t:        The timestamp of the frame
     # Data:     The data for the frame
-    def __start_video(self, t, Data):
+    def start_video(self, t, Data):
         pass
     
     # Create the next frame of the video
     #
     # t:        The timestamp of the frame
     # Data:     The data for the frame
-    def __update_video(self, t, Data):
+    def update_video(self, t, Data):
         pass
         
 
@@ -1506,27 +1527,28 @@ class sampler_field_scalar(sampler_field):
     #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
     #               values in the field
     def make_video(self, Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100, extent = [0, 1, 0, 1], scale = default_scalar_scale, cmap = "coolwarm", clim = None):
+        # Save data
+        self.extent = extent
+        self.scale = scale
+        self.cmap = cmap
+        self.clim = clim
+
+        # Make the video
         super().make_video(Name, FPS = FPS, figsize = figsize, dpi = dpi)
-        
-        # Save the rest of the data
-        self.__extent = extent
-        self.__scale = scale
-        self.__cmap = cmap
-        self.__clim = clim
-        
+                
     # Creates the first frame of a video
     #
     # t:        The timestamp of the frame
     # Data:     The data for the frame
-    def __start_video(self, t, Data):
+    def start_video(self, t, Data):
         # Plot the data
-        self.video.plot_scalar(Data, extent = self.__extent, scale = self.__scale, cmap = self.__cmap, clim = self.__clim)
+        self.video.plot_scalar(Data, extent = self.extent, scale = self.scale, cmap = self.cmap, clim = self.clim)
     
     # Create the next frame of the video
     #
     # t:        The timestamp of the frame
     # Data:     The data for the frame
-    def __update_video(self, t, Data):
+    def update_video(self, t, Data):
         # Update the data
         self.video.update_scalar(Data)
 
@@ -1559,28 +1581,29 @@ class sampler_field_vector(sampler_field):
     #               values in the field
     # cutoff:       Determines a cutoff point where if vectors are shorter than the length of the longest vector times cutoff, then it is not shown
     def make_video(self, Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100, extent = [0, 1, 0, 1], scale = default_scalar_scale, cmap = "coolwarm", clim = None, cutoff = 0):
+        # Save the data
+        self.extent = extent
+        self.scale = scale
+        self.cmap = cmap
+        self.clim = clim
+        self.cutoff = cutoff
+
+        # Make the video
         super().make_video(Name, FPS = FPS, figsize = figsize, dpi = dpi)
-        
-        # Save the rest of the data
-        self.__extent = extent
-        self.__scale = scale
-        self.__cmap = cmap
-        self.__clim = clim
-        self.__cutoff = cutoff
-        
+                
     # Creates the first frame of a video
     #
     # t:        The timestamp of the frame
     # Data:     The data for the frame
-    def __start_video(self, t, Data):
+    def start_video(self, t, Data):
         # Plot the data
-        self.video.plot_vector(Data[:, :, 0], Data[:, :, 1], extent = self.__extent, scale = self.__scale, cmap = self.__cmap, clim = self.__clim, cutoff = self.__cutoff)
+        self.video.plot_vector(Data[:, :, 0], Data[:, :, 1], extent = self.extent, scale = self.scale, cmap = self.cmap, clim = self.clim, cutoff = self.cutoff)
     
     # Create the next frame of the video
     #
     # t:        The timestamp of the frame
     # Data:     The data for the frame
-    def __update_video(self, t, Data):
+    def update_video(self, t, Data):
         # Update the data
         self.video.update_vector(Data[:, :, 0], Data[:, :, 1])
 
@@ -1606,48 +1629,185 @@ class sampler_field_line(sampler_field):
     # fmt:          The fmt data of the plot, this is the colour and type of plot
     # label:        The label of the curve
     def make_video(self, Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100, extent = [0, 1, 0, 1], scale = default_scalar_scale, fmt = "", label = ""):
+        # Save the data
+        self.extent = extent
+        self.scale = scale
+        self.fmt = fmt
+        self.label = label
+
+        # Make the video
         super().make_video(Name, FPS = FPS, figsize = figsize, dpi = dpi)
-        
-        # Save the rest of the data
-        self.__extent = extent
-        self.__scale = scale
-        self.__fmt = fmt
-        self.__label = label
-        
+                
     # Creates the first frame of a video
     #
     # t:        The timestamp of the frame
     # Data:     The data for the frame
-    def __start_video(self, t, Data):
+    def start_video(self, t, Data):
         # Plot the data
-        self.video.plot_1D(Data, extent = self.__extent, scale = self.__scale, fmt = self.__fmt, label = self.__label)
+        self.video.plot_1D(Data, extent = self.extent, scale = self.scale, fmt = self.fmt, label = self.label)
     
     # Create the next frame of the video
     #
     # t:        The timestamp of the frame
     # Data:     The data for the frame
-    def __update_video(self, t, Data):
+    def update_video(self, t, Data):
         # Update the data
         self.video.update_1D(Data)
 
 
 # A list of standard samplers which can be imported
 
-# Samples a component of the A-field (vector potential or electric potential)
+# Samples from the scalar potential
 #
 # Sim:      The simulation to sample from, it will automatically add this sampler to the sim
 # Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
-# comp:     The component of the A vector to sample
-class sampler_V(sampler_field_scalar):
-    def __init__(self, Sim, Points, comp):
+class sampler_V_scalar(sampler_field_scalar):
+    def __init__(self, Sim, Points):
         super().__init__(Sim, Points)
-        
-        # Make sure comp has correct type
-        if not isinstance(comp, int):
-            raise Exception(f"comp has wrong type, it is {str(type(comp)):s} but it should be {str(int)}")
-        
-        # Set the component
-        self.__comp = comp
+            
+    def sample_data(self):
+        return self.sim.get_V()
     
-    def __sample_data(self):
-        return self.__sim.get_A(self.__comp)
+    
+# Samples from the scalar potential
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+class sampler_V_line(sampler_field_line):
+    def __init__(self, Sim, Points):
+        super().__init__(Sim, Points)
+            
+    def sample_data(self):
+        return self.sim.get_V()
+    
+    
+# Samples from the vector potential
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# x_hat:    The x direction, should have unit norm, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors.
+# y_hat:    The y direction, should have unit norm, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors, it should be the same shape as for x_hat
+class sampler_A_vector(sampler_field_vector):
+    def __init__(self, Sim, Points, x_hat, y_hat):
+        super().__init__(Sim, Points, x_hat, y_hat)
+            
+    def sample_data(self):
+        return self.sim.get_A()
+
+
+# Samples from the vector potential
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# hat:      An array defining the directions of the hat vector, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
+class sampler_A_scalar(sampler_field_scalar):
+    def __init__(self, Sim, Points, hat):
+        super().__init__(Sim, Points, hat = hat)
+            
+    def sample_data(self):
+        return self.sim.get_A()
+    
+    
+# Samples from the vector potential
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# hat:      An array defining the directions of the hat vector, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
+class sampler_A_line(sampler_field_line):
+    def __init__(self, Sim, Points, hat):
+        super().__init__(Sim, Points, hat = hat)
+            
+    def sample_data(self):
+        return self.sim.get_A()
+    
+    
+# Samples from the E-field
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# x_hat:    The x direction, should have unit norm, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors.
+# y_hat:    The y direction, should have unit norm, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors, it should be the same shape as for x_hat
+class sampler_E_vector(sampler_field_vector):
+    def __init__(self, Sim, Points, x_hat, y_hat):
+        super().__init__(Sim, Points, x_hat, y_hat)
+            
+    def sample_data(self):
+        return self.sim.get_E()
+
+
+# Samples from the E-field
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# hat:      An array defining the directions of the hat vector, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
+class sampler_E_scalar(sampler_field_scalar):
+    def __init__(self, Sim, Points, hat):
+        super().__init__(Sim, Points, hat = hat)
+            
+    def sample_data(self):
+        return self.sim.get_E()
+    
+    
+# Samples from the E-field
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# hat:      An array defining the directions of the hat vector, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
+class sampler_E_line(sampler_field_line):
+    def __init__(self, Sim, Points, hat):
+        super().__init__(Sim, Points, hat = hat)
+            
+    def sample_data(self):
+        return self.sim.get_E()
+    
+    
+# Samples from the B-field
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# x_hat:    The x direction, should have unit norm, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors.
+# y_hat:    The y direction, should have unit norm, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors, it should be the same shape as for x_hat
+class sampler_B_vector(sampler_field_vector):
+    def __init__(self, Sim, Points, x_hat, y_hat):
+        super().__init__(Sim, Points, x_hat, y_hat)
+            
+    def sample_data(self):
+        return self.sim.get_B()
+
+
+# Samples from the B-field
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# hat:      An array defining the directions of the hat vector, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
+class sampler_B_scalar(sampler_field_scalar):
+    def __init__(self, Sim, Points, hat):
+        super().__init__(Sim, Points, hat = hat)
+            
+    def sample_data(self):
+        return self.sim.get_B()
+    
+    
+# Samples from the B-field
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# hat:      An array defining the directions of the hat vector, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
+class sampler_B_line(sampler_field_line):
+    def __init__(self, Sim, Points, hat):
+        super().__init__(Sim, Points, hat = hat)
+            
+    def sample_data(self):
+        return self.sim.get_B()
