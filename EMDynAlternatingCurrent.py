@@ -50,7 +50,7 @@ def J(dx, N, x0, c, mu0):
     return get_J
 
 # Setup the simulation
-Sim = EM.sim(N, dt = dt, delta_x = delta_x, x0 = x0, J = J, boundaries = [["closed", "closed"], ["closed", "closed"], "periodic"])
+Sim = EM.sim(N, dt = dt, delta_x = delta_x, x0 = x0, J = J, boundaries = [["open", "open"], ["open", "open"], "periodic"])
 
 # Set clim
 max_val_A = 0.5

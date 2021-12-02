@@ -256,22 +256,34 @@ def update_plot_scalar(Plot, Values, scale = default_scalar_scale):
 # Plot the values along a line in a scalar field
 #
 # Values:       The 1D array of values to plot
-# extent:       Used to label the axis must be given as [x_min, x_max]
+# x:            The x values, this should be same shape as Values or None
+# xlim:         The limit of x values to look at, set to None to let matplotlib do it automatically
+# ylim:         The limit of y values to look at, set to None to let matplotlib do it automatically
 # scale:        Function to scale the values of the field
 # ax:           The axes to draw the plot inside
 # fig:          The figure to draw in, if given then ax must also be given
 # figsize:      The size of the figure if ax is not given
 # dpi:          The resolution of the figure if ax is not given
 # fmt:          The fmt used for plotting
-def plot_1D(Values, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-", label = ""):
+def plot_1D(Values, x = None, xlim = None, ylim = None, scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-", label = ""):
     # Create figure
     if ax is None:
         fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
         
-    # Plot graph
-    Plot = ax.plot(np.linspace(extent[0], extent[1], len(Values)), Values, fmt, label = label)
-    ax.set_xlim(extent[0], extent[1])
-    ax.set_ylim(extent[2], extent[3])
+    # Plot graph with x
+    if x is not None:
+        Plot = ax.plot(x, Values, fmt, label = label)
+        
+    # Plot without x
+    else:
+        Plot = ax.plot(Values, fmt, label = label)
+    
+    # Set limits if specified
+    if xlim is not None:
+        ax.set_xlim(xlim[0], xlim[1])
+    
+    if ylim is not None:
+        ax.set_ylim(ylim[1], ylim[1])
     
     return fig, ax, Plot[0]
 
@@ -459,18 +471,18 @@ def get_boundaries_open(N, Coordinate, Dir):
 
     # Add the ones
     if Dir == 0:
-        Tile[:np.prod(N[:Coordinate])] = 2
-        OffTile1[:np.prod(N[:Coordinate])] = -1
-        OffTile2[:np.prod(N[:Coordinate])] = 0
-        OffTile3[:np.prod(N[:Coordinate])] = 0
-        OffTile4[:np.prod(N[:Coordinate])] = 0
+        Tile[:np.prod(N[:Coordinate])] = 5#4
+        OffTile1[:np.prod(N[:Coordinate])] = -10#-6
+        OffTile2[:np.prod(N[:Coordinate])] = 10#4
+        OffTile3[:np.prod(N[:Coordinate])] = -5#-1
+        OffTile4[:np.prod(N[:Coordinate])] = 1#0
 
     else:
-        Tile[-np.prod(N[:Coordinate]):] = 2
-        OffTile1[-np.prod(N[:Coordinate]):] = -1
-        OffTile2[-np.prod(N[:Coordinate]):] = 0
-        OffTile3[-np.prod(N[:Coordinate]):] = 0
-        OffTile4[-np.prod(N[:Coordinate]):] = 0
+        Tile[-np.prod(N[:Coordinate]):] = 5#4
+        OffTile1[-np.prod(N[:Coordinate]):] = -10#-6
+        OffTile2[-np.prod(N[:Coordinate]):] = 10#4
+        OffTile3[-np.prod(N[:Coordinate]):] = -5#-1
+        OffTile4[-np.prod(N[:Coordinate]):] = 1#0
         OffPos1 *= -1
         OffPos2 *= -1
         OffPos3 *= -1
@@ -486,14 +498,14 @@ def get_boundaries_open(N, Coordinate, Dir):
     if Dir == 0:
         OffDiag1 = OffDiag1[:-np.prod(N[:Coordinate])]
         OffDiag2 = OffDiag2[:-2 * np.prod(N[:Coordinate])]
-        OffDiag3 = OffDiag3[:-2 * np.prod(N[:Coordinate])]
-        OffDiag4 = OffDiag4[:-2 * np.prod(N[:Coordinate])]
+        OffDiag3 = OffDiag3[:-3 * np.prod(N[:Coordinate])]
+        OffDiag4 = OffDiag4[:-4 * np.prod(N[:Coordinate])]
        
     else:
         OffDiag1 = OffDiag1[np.prod(N[:Coordinate]):]
         OffDiag2 = OffDiag2[2 * np.prod(N[:Coordinate]):]
-        OffDiag3 = OffDiag3[2 * np.prod(N[:Coordinate]):]
-        OffDiag4 = OffDiag4[2 * np.prod(N[:Coordinate]):]
+        OffDiag3 = OffDiag3[3 * np.prod(N[:Coordinate]):]
+        OffDiag4 = OffDiag4[4 * np.prod(N[:Coordinate]):]
 
     # Create the boundary
     Bound = sparse.diags([Diag, OffDiag1, OffDiag2, OffDiag3, OffDiag4], [0, OffPos1, OffPos2, OffPos3, OffPos4], format = "csr")
@@ -1073,6 +1085,10 @@ class sim:
         self.__S = None
         self.__u = None
                 
+    # Get the dx
+    def get_dx(self):
+        return self.__dx
+        
     # Get electric potential
     def get_V(self):
         return self.__A[:, 0] * self.__c
@@ -1292,16 +1308,18 @@ class video:
     # Plots a 1D curve
     #
     # Values:       The 1D array of values to plot
-    # extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
+    # x:            The x values, this should be same shape as Values or None
+    # xlim:         The limit of x values to look at, set to None to let matplotlib do it automatically
+    # ylim:         The limit of y values to look at, set to None to let matplotlib do it automatically
     # scale:        Function to scale the values of the field
     # fmt:          The fmt data of the plot, this is the colour and type of plot
     # label:        The label of the curve
-    def plot_1D(self, Values, extent = [0, 1, 0, 1], scale = default_scalar_scale, fmt = "-", label = ""):
+    def plot_1D(self, Values, x = None, xlim = None, ylim = None, scale = default_scalar_scale, fmt = "-", label = ""):
         # Save scale
         self.__scale = scale
                 
         # Plot
-        _, _, self.__plot = plot_1D(Values, extent = extent, scale = scale, fig = self.__fig, ax = self.__ax, fmt = fmt, label = label)
+        _, _, self.__plot = plot_1D(Values, x = x, xlim = xlim, ylim = ylim, scale = scale, fig = self.__fig, ax = self.__ax, fmt = fmt, label = label)
     
     # Updates a 1D curve
     #
@@ -1551,6 +1569,31 @@ class sampler_field_scalar(sampler_field):
     def update_video(self, t, Data):
         # Update the data
         self.video.update_scalar(Data)
+      
+    
+    # Plots the scalar field at some time
+    #
+    # t:            The time from which to take the data, it will find the data closest to this time
+    # extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
+    # scale:        Function to scale the values of the field
+    # ax:           The axes to draw the plot inside
+    # fig:          The figure to draw in, if given then ax must also be given
+    # figsize:      The size of the figure if ax is not given
+    # dpi:          The resolution of the figure if ax is not given
+    # cmap:         The colour map to plot the scalar field with
+    # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the field,
+    #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
+    #               values in the field
+    def plot(self, t, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):
+        # Find the correct data
+        Dist = np.abs(np.array(self.t) - t)
+        Pos = np.argmin(Dist)
+        
+        Data = self.data[Pos]
+        
+        # Plot the data
+        return plot_scalar(Data, extent = extent, scale = scale, fig = fig, ax = ax, figsize = figsize, dpi = dpi, cmap = cmap, clim = clim)
+
 
 # A sampler which samples a vector field in 2D
 #
@@ -1606,17 +1649,45 @@ class sampler_field_vector(sampler_field):
     def update_video(self, t, Data):
         # Update the data
         self.video.update_vector(Data[:, :, 0], Data[:, :, 1])
+        
+    # Plots a vector field
+    #
+    # t:            The time from which to take the data, it will find the data closest to this time
+    # extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
+    # scale:        Function to scale the values of the field
+    # fig:          The figure to draw in, if given then ax must also be given
+    # ax:           The axes to draw the plot inside
+    # figsize:      The size of the figure if ax is not given
+    # dpi:          The resolution of the figure if ax is not given
+    # cmap:         The colour map to plot the vectors with
+    # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the vector lengths,
+    #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
+    #               values of the lengths
+    def plot(self, t, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None, cutoff = 0):
+        # Find the correct data
+        Dist = np.abs(np.array(self.t) - t)
+        Pos = np.argmin(Dist)
+        
+        Data = self.data[Pos]
+        
+        # Plot the data
+        return plot_vector(Data[:, :, 0], Data[:, :, 1], extent = extent, scale = scale, fig = fig, ax = ax, figsize = figsize, dpi = dpi, cmap = cmap, clim = clim, cutoff = cutoff)
+        
 
 
 # A sampler to sample a field along a line
 #
 # Sim:      The simulation to sample from, it will automatically add this sampler to the sim
 # Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# x:        The x-values for the different points, should have same shape as Points except for the coordinate axis
 # hat:      An array defining the directions of the hat vector, it should have a shape of type 
 #           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
 class sampler_field_line(sampler_field):
-    def __init__(self, Sim, Points, hat = None):
+    def __init__(self, Sim, Points, x = None, hat = None):
         super().__init__(Sim, Points, hat = hat, single = True)
+        
+        # Set x
+        self.x = x
 
     # Creates a video using the data it has sampled
     #
@@ -1624,13 +1695,15 @@ class sampler_field_line(sampler_field):
     # FPS:          How many frames per second the video should have
     # figsize:      The size of the figure in
     # dpi:          The resolution of the figure
-    # extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
+    # xlim:         The limit of x values to look at, set to None to let matplotlib do it automatically
+    # ylim:         The limit of y values to look at, set to None to let matplotlib do it automatically
     # scale:        Function to scale the values of the field
     # fmt:          The fmt data of the plot, this is the colour and type of plot
     # label:        The label of the curve
-    def make_video(self, Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100, extent = [0, 1, 0, 1], scale = default_scalar_scale, fmt = "", label = ""):
+    def make_video(self, Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100, xlim = None, ylim = None, scale = default_scalar_scale, fmt = "", label = ""):
         # Save the data
-        self.extent = extent
+        self.xlim = xlim
+        self.ylim = ylim
         self.scale = scale
         self.fmt = fmt
         self.label = label
@@ -1644,7 +1717,7 @@ class sampler_field_line(sampler_field):
     # Data:     The data for the frame
     def start_video(self, t, Data):
         # Plot the data
-        self.video.plot_1D(Data, extent = self.extent, scale = self.scale, fmt = self.fmt, label = self.label)
+        self.video.plot_1D(Data, x = self.x, xlim = self.xlim, ylim = self.ylim, scale = self.scale, fmt = self.fmt, label = self.label)
     
     # Create the next frame of the video
     #
@@ -1653,7 +1726,28 @@ class sampler_field_line(sampler_field):
     def update_video(self, t, Data):
         # Update the data
         self.video.update_1D(Data)
-
+        
+    # Plot the data for some time
+    #
+    # Values:       The 1D array of values to plot
+    # xlim:         The limit of x values to look at, set to None to let matplotlib do it automatically
+    # ylim:         The limit of y values to look at, set to None to let matplotlib do it automatically
+    # scale:        Function to scale the values of the field
+    # ax:           The axes to draw the plot inside
+    # fig:          The figure to draw in, if given then ax must also be given
+    # figsize:      The size of the figure if ax is not given
+    # dpi:          The resolution of the figure if ax is not given
+    # fmt:          The fmt used for plotting
+    def plot(self, t, xlim = None, ylim = None, scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-", label = ""):
+        # Find the correct data
+        Dist = np.abs(np.array(self.t) - t)
+        Pos = np.argmin(Dist)
+        
+        Data = self.data[Pos]
+        
+        # Plot the data
+        return plot_1D(Data, x = self.x, xlim = xlim, ylim = ylim, scale = scale, fig = fig, ax = ax, figsize = figsize, dpi = dpi, fmt = fmt, label = label)
+        
 
 # A list of standard samplers which can be imported
 
@@ -1673,9 +1767,10 @@ class sampler_V_scalar(sampler_field_scalar):
 #
 # Sim:      The simulation to sample from, it will automatically add this sampler to the sim
 # Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# x:        The x-values for the different points, should have same shape as Points except for the coordinate axis
 class sampler_V_line(sampler_field_line):
-    def __init__(self, Sim, Points):
-        super().__init__(Sim, Points)
+    def __init__(self, Sim, Points, x = None):
+        super().__init__(Sim, Points, x = x)
             
     def sample_data(self):
         return self.sim.get_V()
@@ -1717,9 +1812,10 @@ class sampler_A_scalar(sampler_field_scalar):
 # Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
 # hat:      An array defining the directions of the hat vector, it should have a shape of type 
 #           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
+# x:        The x-values for the different points, should have same shape as Points except for the coordinate axis
 class sampler_A_line(sampler_field_line):
-    def __init__(self, Sim, Points, hat):
-        super().__init__(Sim, Points, hat = hat)
+    def __init__(self, Sim, Points, hat, x = None):
+        super().__init__(Sim, Points, hat = hat, x = x)
             
     def sample_data(self):
         return self.sim.get_A()
@@ -1761,9 +1857,10 @@ class sampler_E_scalar(sampler_field_scalar):
 # Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
 # hat:      An array defining the directions of the hat vector, it should have a shape of type 
 #           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
+# x:        The x-values for the different points, should have same shape as Points except for the coordinate axis
 class sampler_E_line(sampler_field_line):
-    def __init__(self, Sim, Points, hat):
-        super().__init__(Sim, Points, hat = hat)
+    def __init__(self, Sim, Points, hat, x = None):
+        super().__init__(Sim, Points, hat = hat, x = x)
             
     def sample_data(self):
         return self.sim.get_E()
@@ -1805,9 +1902,158 @@ class sampler_B_scalar(sampler_field_scalar):
 # Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
 # hat:      An array defining the directions of the hat vector, it should have a shape of type 
 #           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
+# x:        The x-values for the different points, should have same shape as Points except for the coordinate axis
 class sampler_B_line(sampler_field_line):
+    def __init__(self, Sim, Points, hat, x = None):
+        super().__init__(Sim, Points, hat = hat, x = x)
+            
+    def sample_data(self):
+        return self.sim.get_B()
+    
+
+# Samples from the S-field
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# x_hat:    The x direction, should have unit norm, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors.
+# y_hat:    The y direction, should have unit norm, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors, it should be the same shape as for x_hat
+class sampler_S_vector(sampler_field_vector):
+    def __init__(self, Sim, Points, x_hat, y_hat):
+        super().__init__(Sim, Points, x_hat, y_hat)
+            
+    def sample_data(self):
+        return self.sim.get_S()
+
+
+# Samples from the S-field
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# hat:      An array defining the directions of the hat vector, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
+class sampler_S_scalar(sampler_field_scalar):
     def __init__(self, Sim, Points, hat):
         super().__init__(Sim, Points, hat = hat)
             
     def sample_data(self):
-        return self.sim.get_B()
+        return self.sim.get_S()
+    
+    
+# Samples from the S-field
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# hat:      An array defining the directions of the hat vector, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
+# x:        The x-values for the different points, should have same shape as Points except for the coordinate axis
+class sampler_S_line(sampler_field_line):
+    def __init__(self, Sim, Points, hat, x = None):
+        super().__init__(Sim, Points, hat = hat, x = x)
+            
+    def sample_data(self):
+        return self.sim.get_S()
+
+
+# Samples from the energy density
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+class sampler_u_scalar(sampler_field_scalar):
+    def __init__(self, Sim, Points):
+        super().__init__(Sim, Points)
+            
+    def sample_data(self):
+        return self.sim.get_u()
+    
+    
+# Samples from the energy density
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# x:        The x-values for the different points, should have same shape as Points except for the coordinate axis
+class sampler_u_line(sampler_field_line):
+    def __init__(self, Sim, Points, x = None):
+        super().__init__(Sim, Points, x = x)
+            
+    def sample_data(self):
+        return self.sim.get_u()
+
+
+# Samples the total energy
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+class sampler_U_number(sampler_number):
+    def sample_data(self):
+        return np.sum(self.sim.get_u()) * np.prod(self.sim.get_dx())
+
+
+# Samples from the J-field
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# x_hat:    The x direction, should have unit norm, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors.
+# y_hat:    The y direction, should have unit norm, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors, it should be the same shape as for x_hat
+class sampler_J_vector(sampler_field_vector):
+    def __init__(self, Sim, Points, x_hat, y_hat):
+        super().__init__(Sim, Points, x_hat, y_hat)
+            
+    def sample_data(self):
+        return self.sim.get_J()
+
+
+# Samples from the J-field
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# hat:      An array defining the directions of the hat vector, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
+class sampler_J_scalar(sampler_field_scalar):
+    def __init__(self, Sim, Points, hat):
+        super().__init__(Sim, Points, hat = hat)
+            
+    def sample_data(self):
+        return self.sim.get_J()
+    
+    
+# Samples from the J-field
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# hat:      An array defining the directions of the hat vector, it should have a shape of type 
+#           Points.shape + (3,) or (3,) for constant vectors. Leave as None if sampling from a scalar field
+# x:        The x-values for the different points, should have same shape as Points except for the coordinate axis
+class sampler_J_line(sampler_field_line):
+    def __init__(self, Sim, Points, hat, x = None):
+        super().__init__(Sim, Points, x = x, hat = hat)
+            
+    def sample_data(self):
+        return self.sim.get_J()
+    
+
+# Samples from the charge desnity
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+class sampler_Rho_scalar(sampler_field_scalar):
+    def __init__(self, Sim, Points):
+        super().__init__(Sim, Points)
+            
+    def sample_data(self):
+        return self.sim.get_Rho()
+    
+    
+# Samples from the charge desnity
+#
+# Sim:      The simulation to sample from, it will automatically add this sampler to the sim
+# Points:   numpy array of all the points to sample from, the x,y,z-coordinates are in the first axis
+# x:        The x-values for the different points, should have same shape as Points except for the coordinate axis
+class sampler_Rho_line(sampler_field_line):
+    def __init__(self, Sim, Points, x = None):
+        super().__init__(Sim, Points, x = x)
+            
+    def sample_data(self):
+        return self.sim.get_Rho()
