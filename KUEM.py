@@ -1,7 +1,8 @@
 import numpy as np
 import scipy.sparse as sparse
 import matplotlib.pyplot as plt
-#import cv2 as cv2
+import matplotlib.colors as c
+import matplotlib as mpl
 import scipy.sparse.linalg as slinalg
 import time as time
 import cv2
@@ -210,7 +211,7 @@ def sample_vectors(Field, Points, hat, dx, N, x0, single = False):
 # Returns a numpy array filled with the values in x scaled
 # 
 # x:    This is a numpy array of floating points
-def default_scalar_scale(x):
+def default_scale(x):
     return x
 
 
@@ -227,7 +228,7 @@ def default_scalar_scale(x):
 # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the field,
 #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
 #               values in the field
-def plot_scalar(Values, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):
+def plot_scalar(Values, extent = [0, 1, 0, 1], scale = default_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):
     # Calculate clim
     if clim is None:
         clim = np.array([np.min(Values), np.max(Values)], dtype = float)
@@ -249,8 +250,99 @@ def plot_scalar(Values, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig
 # Plot:         The Plot element returned by plot_scalar
 # Values:       The new values to plot, it will use same extent, cmap and clim
 # scale:        The scale function used, this should be the same as originally used
-def update_plot_scalar(Plot, Values, scale = default_scalar_scale):
+def update_plot_scalar(Plot, Values, scale = default_scale):
     Plot.set_array(np.transpose(scale(Values)))
+
+
+# Define a contour class
+class contour:
+    def __init__(self, ax, plot, X, Y, levels, cmap, extent, vmin, vmax, colors, linestyles, use_cmap):
+        # Save all the data
+        self.__ax = ax
+        self.__plot = plot
+        self.__X = X
+        self.__Y = Y
+        self.__levels = levels
+        self.__cmap = cmap
+        self.__extent = extent
+        self.__vmin = vmin
+        self.__vmax = vmax
+        self.__colors = colors
+        self.__linestyles = linestyles
+        self.__use_cmap = use_cmap
+        
+    # Update the plot
+    #
+    # Values: The new values in the same shape as the old
+    def update(self, Values):
+        # Remove old contours
+        for Coll in self.__plot.collections:
+            Coll.remove()
+        
+        # Plot the contours
+        if self.__use_cmap is True:
+            self.__plot = self.__ax.contour(self.__X, self.__Y, Values, self.__levels, cmap = self.__cmap, extent = self.__extent, vmin = self.__vmin, vmax = self.__vmax, linestyles = self.__linestyles)
+        
+        else:
+            self.__plot = self.__ax.contour(self.__X, self.__Y, Values, self.__levels, extent = self.__extent, colors = self.__colors, linestyles = self.__linestyles)      
+            
+        return self.__plot
+
+# Plots contour lines
+#
+# Values:       The 2D array of values to plot
+# extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
+# levels:       The levels to draw contours for, if an int then they will be evenly spaced between clim[0] and clim[1].
+#               Can also be a list/array of levels in increasing order
+# scale:        Function to scale the values of the field
+# ax:           The axes to draw the plot inside
+# fig:          The figure to draw in, if given then ax must also be given
+# figsize:      The size of the figure if ax is not given
+# dpi:          The resolution of the figure if ax is not given
+# cmap:         The colour map to plot the scalar field with, used if use_cmap is True
+# clim:         Array containing the (min, max) values in the colour map, these are the raw values of the field,
+#               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
+#               values in the field
+# colors:       Matplotlib colour string or a list of colours to give each contour their own colour, only used if use_cmap is False
+# use_cmap:     True if the cmap should determine the colours, false if they should be determined by color
+# linestyles:   The linestyles to draw the contours with, a string if all contours should use same linestyle or a list of string for different linestyles
+def plot_contour(Values, extent = [0, 1, 0, 1], levels = 10, scale = default_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", colors = "black", use_cmap = False, clim = None, linestyles = "solid"):
+    # Calculate the positions of the vectors
+    x = np.linspace(extent[0], extent[1], Values.shape[0] + 1)[:-1]
+    y = np.linspace(extent[2], extent[3], Values.shape[1] + 1)[:-1]
+    X, Y = np.meshgrid(x, y, indexing = "ij")
+    
+    # Calculate clim
+    if clim is None:
+        clim = np.array([np.min(Values), np.max(Values)], dtype = float)
+    
+    clim = scale(clim)
+    
+    # If levels is and int find the correct levels
+    if isinstance(levels, int):
+        levels = np.linspace(clim[0], clim[1], levels)
+    
+    # Create figure
+    if ax is None:
+        fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
+
+    # Plot the contours
+    if use_cmap is True:
+        Plot = ax.contour(X, Y, scale(Values), levels, cmap = cmap, extent = extent, vmin = clim[0], vmax = clim[1], linestyles = linestyles)
+    
+    else:
+        Plot = ax.contour(X, Y, scale(Values), levels, extent = extent, colors = colors, linestyles = linestyles)        
+    
+    return fig, ax, contour(ax, Plot, X, Y, levels, cmap, extent, clim[0], clim[1], colors, linestyles, use_cmap)
+
+
+# Updates a contour plot with some new values
+#
+# Plot:         The Plot element returned by plot_contour
+# Values:       The new values to plot, it will use same extent, cmap and clim
+# scale:        The scale function used, this should be the same as originally used
+def update_plot_contour(Plot, Values, scale = default_scale):
+    Plot.update(scale(Values))
 
 
 # Plot the values along a line in a scalar field
@@ -265,7 +357,7 @@ def update_plot_scalar(Plot, Values, scale = default_scalar_scale):
 # figsize:      The size of the figure if ax is not given
 # dpi:          The resolution of the figure if ax is not given
 # fmt:          The fmt used for plotting
-def plot_1D(Values, x = None, xlim = None, ylim = None, scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-", label = ""):
+def plot_1D(Values, x = None, xlim = None, ylim = None, scale = default_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-", label = ""):
     # Create figure
     if ax is None:
         fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
@@ -293,7 +385,7 @@ def plot_1D(Values, x = None, xlim = None, ylim = None, scale = default_scalar_s
 # Plot:         The Plot element returned by plot_1D
 # Values:       The new values to plot
 # scale:        The scale function used, this should be the same as originally used
-def update_plot_1D(Plot, Values, scale = default_scalar_scale):
+def update_plot_1D(Plot, Values, scale = default_scale):
     # Get the x values
     x, _ = Plot.get_data()
     
@@ -315,10 +407,10 @@ def update_plot_1D(Plot, Values, scale = default_scalar_scale):
 # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the vector lengths,
 #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
 #               values of the lengths
-def plot_vector(vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None, cutoff = 0):  
+def plot_vector(vx, vy, extent = [0, 1, 0, 1], scale = default_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None, cutoff = 0):  
     # Calculate the positions of the vectors
-    x = np.linspace(extent[0], extent[1], vx.shape[0] + 1)[:-1]
-    y = np.linspace(extent[2], extent[3], vy.shape[1] + 1)[:-1]
+    x = np.linspace(extent[0], extent[1], vx.shape[0])
+    y = np.linspace(extent[2], extent[3], vy.shape[1])
     X, Y = np.meshgrid(x, y, indexing = "ij")
     
     # Calculate length of vectors
@@ -367,7 +459,7 @@ def plot_vector(vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig
 # vy:           The new vector components along the y axis to plot
 # scale:        The scale function used, this should be the same as originally used
 # cutoff:       The cutoff used in absolute values, this should be the same as originally used
-def update_plot_vector(Plot, vx, vy, scale = default_scalar_scale, cutoff = 0):
+def update_plot_vector(Plot, vx, vy, scale = default_scale, cutoff = 0):
     # Calculate length of vectors
     vAbs = np.sqrt(vx ** 2 + vy ** 2)
 
@@ -386,6 +478,88 @@ def update_plot_vector(Plot, vx, vy, scale = default_scalar_scale, cutoff = 0):
  
     # Update the plot
     Plot.set_UVC(vx, vy, scale(vAbs))
+
+
+class streamplot:
+    def __init__(self, ax, Plot, X, Y, norm, cmap, minlength, density):
+        # Store data
+        self.__ax = ax
+        self.__plot = Plot
+        self.__X = X
+        self.__Y = Y
+        self.__norm = norm
+        self.__cmap = cmap
+        self.__minlength = minlength
+        self.__density = density
+        
+    # Update the plot
+    def update(self, vx, vy, scale = default_scale):
+        # Remove old streams
+        keep = lambda x: not isinstance(x, mpl.patches.FancyArrowPatch)
+        self.__ax.patches = [patch for patch in self.__ax.patches if keep(patch)]
+        self.__plot.lines.remove()
+        
+        # Find vAbs
+        vAbs = np.sqrt(vx ** 2 + vy ** 2).transpose()
+
+        # Plot new streams
+        self.__plot = self.__ax.streamplot(self.__X.transpose(), self.__Y.transpose(), vx.transpose(), vy.transpose(), color = scale(vAbs), norm = self.__norm, cmap = self.__cmap, minlength = self.__minlength, density = self.__density)
+        
+        return self.__plot
+
+
+# Plot a vector stream
+#
+# vx:           The vector components along the x axis to plot
+# vy:           The vector components along the y axis to plot
+# extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
+# scale:        Function to scale the values of the field
+# fig:          The figure to draw in, if given then ax must also be given
+# ax:           The axes to draw the plot inside
+# figsize:      The size of the figure if ax is not given
+# dpi:          The resolution of the figure if ax is not given
+# cmap:         The colour map to plot the vectors with
+# clim:         Array containing the (min, max) values in the colour map, these are the raw values of the vector lengths,
+#               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
+#               values of the lengths
+# density:      How many stream lines should be drawn
+# length:       The minimum length of the lines (In some scaled coordinates)
+def plot_streams(vx, vy, extent = [0, 1, 0, 1], scale = default_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None, density = 1, length = 1):
+    # Calculate the positions of the vectors
+    x = np.linspace(extent[0], extent[1], vx.shape[0])
+    y = np.linspace(extent[2], extent[3], vy.shape[1])
+    X, Y = np.meshgrid(x, y, indexing = "ij")
+
+    # Calculate length of vectors
+    vAbs = np.sqrt(vx ** 2 + vy ** 2).transpose()
+    
+    # Calculate clim
+    if clim is None:
+        clim = np.array([np.min(vAbs), np.max(vAbs)], dtype = float)
+        
+    clim = scale(clim)
+    
+    # Create the color norm
+    Norm = c.Normalize(vmin = clim[0], vmax = clim[1])
+    
+    # Create figure
+    if ax is None:
+        fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
+
+    # Plot vectors
+    Plot = ax.streamplot(X.transpose(), Y.transpose(), vx.transpose(), vy.transpose(), color = scale(vAbs), norm = Norm, cmap = cmap, minlength = np.min([extent[1] - extent[0], extent[3] - extent[2]]) * length / 10, density = density)
+
+    return fig, ax, streamplot(ax, Plot, X, Y, Norm, cmap, np.min([extent[1] - extent[0], extent[3] - extent[2]]) * length / 10, density)
+    
+
+# Updates a streams plot with some new values
+#
+# Plot:         The Plot element returned by plot_contour
+# vx:           The vector components along the x axis to plot
+# vy:           The vector components along the y axis to plot
+# scale:        The scale function used, this should be the same as originally used
+def update_plot_streams(Plot, vx, vy, scale = default_scale):
+    return Plot.update(vx, vy, scale = scale)
 
 
 # Creates an array of points sampled from a plane spanned by x_hat and y_hat and centered on x_c
@@ -1292,7 +1466,7 @@ class video:
     # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the field,
     #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
     #               values in the field
-    def plot_scalar(self, Values, extent = [0, 1, 0, 1], scale = default_scalar_scale, cmap = "coolwarm", clim = None):
+    def plot_scalar(self, Values, extent = [0, 1, 0, 1], scale = default_scale, cmap = "coolwarm", clim = None):
         # Save scale
         self.__scale = scale
                 
@@ -1305,6 +1479,33 @@ class video:
     def update_scalar(self, Values):
         update_plot_scalar(self.__plot, Values, scale = self.__scale)
     
+    # Plots contour lines
+    #
+    # Values:       The 2D array of values to plot
+    # extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
+    # levels:       The levels to draw contours for, if an int then they will be evenly spaced between clim[0] and clim[1].
+    #               Can also be a list/array of levels in increasing order
+    # scale:        Function to scale the values of the field
+    # cmap:         The colour map to plot the scalar field with, used if use_cmap is True
+    # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the field,
+    #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
+    #               values in the field
+    # colors:       Matplotlib colour string or a list of colours to give each contour their own colour, only used if use_cmap is False
+    # use_cmap:     True if the cmap should determine the colours, false if they should be determined by color
+    # linestyles:   The linestyles to draw the contours with, a string if all contours should use same linestyle or a list of string for different linestyles
+    def plot_contour(self, Values, extent = [0, 1, 0, 1], levels = 10, scale = default_scale, cmap = "coolwarm", clim = None, colors = "black", use_cmap = False, linestyles = "solid"):
+        # Save the scale
+        self.__scale = scale
+        
+        # Plot
+        _, _, self.__plot = plot_contour(Values, extent = extent, levels = levels, scale = scale, fig = self.__fig, ax = self.__ax, cmap = cmap, colors = colors, use_cmap = use_cmap, clim = clim, linestyles = linestyles)
+        
+    # Updates a contour plot
+    #
+    # Values:       The 2D array of new values to plot
+    def update_contour(self, Values):
+        update_plot_scalar(self.__plot, Values, scale = self.__scale)
+    
     # Plots a 1D curve
     #
     # Values:       The 1D array of values to plot
@@ -1314,7 +1515,7 @@ class video:
     # scale:        Function to scale the values of the field
     # fmt:          The fmt data of the plot, this is the colour and type of plot
     # label:        The label of the curve
-    def plot_1D(self, Values, x = None, xlim = None, ylim = None, scale = default_scalar_scale, fmt = "-", label = ""):
+    def plot_1D(self, Values, x = None, xlim = None, ylim = None, scale = default_scale, fmt = "-", label = ""):
         # Save scale
         self.__scale = scale
                 
@@ -1338,7 +1539,7 @@ class video:
     #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
     #               values in the field
     # cutoff:       Determines a cutoff point where if vectors are shorter than the length of the longest vector times cutoff, then it is not shown
-    def plot_vector(self, vx, vy, extent = [0, 1, 0, 1], scale = default_scalar_scale, cmap = "coolwarm", clim = None, cutoff = 0):
+    def plot_vector(self, vx, vy, extent = [0, 1, 0, 1], scale = default_scale, cmap = "coolwarm", clim = None, cutoff = 0):
         # Save scale
         self.__scale = scale
         
@@ -1358,6 +1559,32 @@ class video:
     # vy:           The y-component of the vectors
     def update_vector(self, vx, vy):
         update_plot_vector(self.__plot, vx, vy, scale = self.__scale, cutoff = self.__cutoff)
+        
+    # Plot a vector stream
+    #
+    # vx:           The vector components along the x axis to plot
+    # vy:           The vector components along the y axis to plot
+    # extent:       Used to label the axis must be given as [x_min, x_max, y_min, y_max]
+    # scale:        Function to scale the values of the field
+    # cmap:         The colour map to plot the vectors with
+    # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the vector lengths,
+    #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
+    #               values of the lengths
+    # density:      How many stream lines should be drawn
+    # length:       The minimum length of the lines (In some scaled coordinates)
+    def plot_streams(self, vx, vy, extent = [0, 1, 0, 1], scale = default_scale, cmap = "coolwarm", clim = None, density = 1, length = 1):
+        # Save scale
+        self.__scale = scale
+        
+        # Plot
+        _, _, self.__plot = plot_streams(vx, vy, extent = extent, scale = scale, fig = self.__fig, ax = self.__ax, cmap = cmap, clim = clim, density = density, length = length)
+        
+    # Updates a stream plot
+    #
+    # vx:           The x-component of the vectors
+    # vy:           The y-component of the vectors
+    def update_streams(self, vx, vy):
+        update_plot_streams(vx, vy, scale = self.__scale)
         
 
 # A class to take samples of a simulation every timestep
@@ -1544,12 +1771,25 @@ class sampler_field_scalar(sampler_field):
     # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the field,
     #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
     #               values in the field
-    def make_video(self, Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100, extent = [0, 1, 0, 1], scale = default_scalar_scale, cmap = "coolwarm", clim = None):
+    # contour_lim   A two array or tuple containing the lower and upper bounds for the contour lines
+    # levels:       The levels to draw contours for, if an int then they will be evenly spaced between clim[0] and clim[1].
+    #               Can also be a list/array of levels in increasing order
+    # colors:       Matplotlib colour string or a list of colours to give each contour their own colour, only used if use_cmap is False
+    # linestyles:   The linestyles to draw the contours with, a string if all contours should use same linestyle or a list of string for different linestyles
+    # use_scalar:   True if it should plot the scalar field
+    # use_contour:  True if it should plot the contours
+    def make_video(self, Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100, extent = [0, 1, 0, 1], scale = default_scale, cmap = "coolwarm", clim = None, contour_lim = None, levels = 10, colors = "black", linestyles = "solid", use_scalar = True, use_contour = False):
         # Save data
         self.extent = extent
         self.scale = scale
         self.cmap = cmap
         self.clim = clim
+        self.contour_lim = contour_lim
+        self.levels = levels
+        self.linestyles = linestyles
+        self.colors = colors
+        self.use_scalar = use_scalar
+        self.use_contour = use_contour
 
         # Make the video
         super().make_video(Name, FPS = FPS, figsize = figsize, dpi = dpi)
@@ -1559,17 +1799,26 @@ class sampler_field_scalar(sampler_field):
     # t:        The timestamp of the frame
     # Data:     The data for the frame
     def start_video(self, t, Data):
-        # Plot the data
-        self.video.plot_scalar(Data, extent = self.extent, scale = self.scale, cmap = self.cmap, clim = self.clim)
+        # Plot the scalar
+        if self.use_scalar is True:
+            self.video.plot_scalar(Data, extent = self.extent, scale = self.scale, cmap = self.cmap, clim = self.clim)
+    
+        # Plot the contours
+        if self.use_contour is True:
+            self.video.plot_contour(Data, extent = self.extent, levels = self.levels, scale = self.scale, colors = self.colors, use_cmap = False, linestyles = self.linestyles, clim = self.contour_lim)
     
     # Create the next frame of the video
     #
     # t:        The timestamp of the frame
     # Data:     The data for the frame
     def update_video(self, t, Data):
-        # Update the data
-        self.video.update_scalar(Data)
-      
+        # Update the scalar
+        if self.use_scalar is True:
+            self.video.update_scalar(Data)
+        
+        # Plot the contours
+        if self.use_contour is True:
+            self.video.update_contour(Data)
     
     # Plots the scalar field at some time
     #
@@ -1584,16 +1833,30 @@ class sampler_field_scalar(sampler_field):
     # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the field,
     #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
     #               values in the field
-    def plot(self, t, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None):
+    # contour_lim   A two array or tuple containing the lower and upper bounds for the contour lines
+    # levels:       The levels to draw contours for, if an int then they will be evenly spaced between clim[0] and clim[1].
+    #               Can also be a list/array of levels in increasing order
+    # colors:       Matplotlib colour string or a list of colours to give each contour their own colour, only used if use_cmap is False
+    # linestyles:   The linestyles to draw the contours with, a string if all contours should use same linestyle or a list of string for different linestyles
+    # use_scalar:   True if it should plot the scalar field
+    # use_contour:  True if it should plot the contours
+    def plot(self, t, extent = [0, 1, 0, 1], scale = default_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None, contour_lim = None, levels = 10, colors = "black", linestyles = "solid", use_scalar = True, use_contour = False):
         # Find the correct data
         Dist = np.abs(np.array(self.t) - t)
         Pos = np.argmin(Dist)
         
         Data = self.data[Pos]
+        Plot1 = None
+        Plot2 = None
         
         # Plot the data
-        return plot_scalar(Data, extent = extent, scale = scale, fig = fig, ax = ax, figsize = figsize, dpi = dpi, cmap = cmap, clim = clim)
+        if use_scalar is True:
+            fig, ax, Plot1 = plot_scalar(Data, extent = extent, scale = scale, fig = fig, ax = ax, figsize = figsize, dpi = dpi, cmap = cmap, clim = clim)
 
+        if use_contour is True:
+            fig, ax, Plot2 = plot_contour(Data, extent = extent, levels = levels, fig = fig, ax = ax, figsize = figsize, dpi = dpi, clim = contour_lim, colors = colors, use_cmap = False, linestyles = linestyles)
+
+        return fig, ax, (Plot1, Plot2)
 
 # A sampler which samples a vector field in 2D
 #
@@ -1623,13 +1886,21 @@ class sampler_field_vector(sampler_field):
     #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
     #               values in the field
     # cutoff:       Determines a cutoff point where if vectors are shorter than the length of the longest vector times cutoff, then it is not shown
-    def make_video(self, Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100, extent = [0, 1, 0, 1], scale = default_scalar_scale, cmap = "coolwarm", clim = None, cutoff = 0):
+    # density:      How many stream lines should be drawn
+    # length:       The minimum length of the stream lines (In some scaled coordinates)
+    # use_vector:   True if it should plot the vector field
+    # use_streams:  True if it should plot the streamlines
+    def make_video(self, Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100, extent = [0, 1, 0, 1], scale = default_scale, cmap = "coolwarm", clim = None, cutoff = 0, density = 1, length = 1, use_vector = True, use_streams = False):
         # Save the data
         self.extent = extent
         self.scale = scale
         self.cmap = cmap
         self.clim = clim
         self.cutoff = cutoff
+        self.density = density
+        self.length = length
+        self.use_vector = use_vector
+        self.use_streams = use_streams
 
         # Make the video
         super().make_video(Name, FPS = FPS, figsize = figsize, dpi = dpi)
@@ -1640,7 +1911,11 @@ class sampler_field_vector(sampler_field):
     # Data:     The data for the frame
     def start_video(self, t, Data):
         # Plot the data
-        self.video.plot_vector(Data[:, :, 0], Data[:, :, 1], extent = self.extent, scale = self.scale, cmap = self.cmap, clim = self.clim, cutoff = self.cutoff)
+        if self.use_vector is True:
+            self.video.plot_vector(Data[:, :, 0], Data[:, :, 1], extent = self.extent, scale = self.scale, cmap = self.cmap, clim = self.clim, cutoff = self.cutoff)
+    
+        if self.use_streams is True:
+            self.video.plot_streams(Data[:, :, 0], Data[:, :, 1], extent = self.extent, scale = self.scale, cmap = self.cmap, clim = self.clim, density = self.density, length = self.length)
     
     # Create the next frame of the video
     #
@@ -1648,7 +1923,11 @@ class sampler_field_vector(sampler_field):
     # Data:     The data for the frame
     def update_video(self, t, Data):
         # Update the data
-        self.video.update_vector(Data[:, :, 0], Data[:, :, 1])
+        if self.use_vector is True:
+            self.video.update_vector(Data[:, :, 0], Data[:, :, 1])
+            
+        if self.use_streams is True:
+            self.video.update_streams(Data[:, :, 0], Data[:, :, 1])
         
     # Plots a vector field
     #
@@ -1663,16 +1942,27 @@ class sampler_field_vector(sampler_field):
     # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the vector lengths,
     #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
     #               values of the lengths
-    def plot(self, t, extent = [0, 1, 0, 1], scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None, cutoff = 0):
+    # density:      How many stream lines should be drawn
+    # length:       The minimum length of the stream lines (In some scaled coordinates)
+    # use_vector:   True if it should plot the vector field
+    # use_streams:  True if it should plot the streamlines
+    def plot(self, t, extent = [0, 1, 0, 1], scale = default_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None, cutoff = 0, density = 1, length = 1, use_vector = True, use_streams = False):
         # Find the correct data
         Dist = np.abs(np.array(self.t) - t)
         Pos = np.argmin(Dist)
         
         Data = self.data[Pos]
+        Plot1 = None
+        Plot2 = None
         
         # Plot the data
-        return plot_vector(Data[:, :, 0], Data[:, :, 1], extent = extent, scale = scale, fig = fig, ax = ax, figsize = figsize, dpi = dpi, cmap = cmap, clim = clim, cutoff = cutoff)
+        if use_vector is True:
+            fig, ax, Plot1 = plot_vector(Data[:, :, 0], Data[:, :, 1], extent = extent, scale = scale, fig = fig, ax = ax, figsize = figsize, dpi = dpi, cmap = cmap, clim = clim, cutoff = cutoff)
         
+        if use_streams is True:
+            fig, ax, Plot2 = plot_streams(Data[:, :, 0], Data[:, :, 1], extent = extent, scale = scale, fig = fig, ax = ax, figsize = figsize, dpi = dpi, cmap = cmap, clim = clim, density = density, length = length)
+        
+        return fig, ax, (Plot1, Plot2)
 
 
 # A sampler to sample a field along a line
@@ -1700,7 +1990,7 @@ class sampler_field_line(sampler_field):
     # scale:        Function to scale the values of the field
     # fmt:          The fmt data of the plot, this is the colour and type of plot
     # label:        The label of the curve
-    def make_video(self, Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100, xlim = None, ylim = None, scale = default_scalar_scale, fmt = "", label = ""):
+    def make_video(self, Name, FPS = 30, figsize = np.array([10., 10.]), dpi = 100, xlim = None, ylim = None, scale = default_scale, fmt = "", label = ""):
         # Save the data
         self.xlim = xlim
         self.ylim = ylim
@@ -1738,7 +2028,7 @@ class sampler_field_line(sampler_field):
     # figsize:      The size of the figure if ax is not given
     # dpi:          The resolution of the figure if ax is not given
     # fmt:          The fmt used for plotting
-    def plot(self, t, xlim = None, ylim = None, scale = default_scalar_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-", label = ""):
+    def plot(self, t, xlim = None, ylim = None, scale = default_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, fmt = "-", label = ""):
         # Find the correct data
         Dist = np.abs(np.array(self.t) - t)
         Pos = np.argmin(Dist)

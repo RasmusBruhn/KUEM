@@ -106,7 +106,7 @@ ax_E_2D.plot(Line_x, Line_y)
 if Save is True:
     fig_E_2D.savefig(Name_E_2D)
 
-fig_V_2D, _, _ = Sampler_V_2D.plot(0, extent = extent)
+fig_V_2D, _, _ = Sampler_V_2D.plot(0, extent = extent, use_contour = True, levels = 15)
 if Save is True:
     fig_V_2D.savefig(Name_V_2D)
 

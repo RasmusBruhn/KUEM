@@ -19,6 +19,17 @@ Exact = False
 Progress = 5
 approx_n = 0.1
 
+# Plotting settings
+PlotScalar = True
+PlotContour = True
+PlotVector = False
+PlotStreams = True
+
+StreamDensity = 2
+StreamLength = 1
+ContourLevels = 10
+ContourLim = (-0.4, 0.4)
+
 # File names
 Name_E_2D = "ExElectricDipoleE.png"
 Name_V_2D = "ExElectricDipoleV.png"
@@ -80,11 +91,11 @@ StaticTime = Sim.solve(exact = Exact, progress = Progress)
 print(f"Solved starting conditions in {StaticTime:.2g} s")
 
 # Create the images
-fig_E_2D, _, _ = Sampler_E_2D.plot(0, extent = extent, scale = np.log)
+fig_E_2D, _, _ = Sampler_E_2D.plot(0, extent = extent, scale = np.log, use_vector = PlotVector, use_streams = PlotStreams, density = StreamDensity, length = StreamLength)
 if Save is True:
     fig_E_2D.savefig(Name_E_2D)
 
-fig_V_2D, _, _ = Sampler_V_2D.plot(0, extent = extent, scale = Scale)
+fig_V_2D, _, _ = Sampler_V_2D.plot(0, extent = extent, scale = Scale, contour_lim = ContourLim, use_scalar = PlotScalar, use_contour = PlotContour)
 if Save is True:
     fig_V_2D.savefig(Name_V_2D)
 
