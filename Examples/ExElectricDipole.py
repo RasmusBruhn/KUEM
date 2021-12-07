@@ -40,19 +40,19 @@ Name_V_2D = "ExElectricDipoleV.png"
 Name_Rho_2D = "ExElectricDipoleRho.png"
 Save = True
 
-# Define the current
+# Define the charge
 def J(dx, N, x0, c, mu0):
     # Create grid
     Grid = np.zeros(tuple(N) + (4,))
     
-    # Add in the current, normalising so the current is the same no matter the grid size
+    # Add in the charge, normalising so the charge is the same no matter the grid size
     Grid[int(N[0] / 2), int(N[1] / 2), int(N[2] * (1 - d) / 2), 0] = c * Charge / np.prod(dx)
     Grid[int(N[0] / 2), int(N[1] / 2), int(N[2] * (1 + d) / 2), 0] = -c * Charge / np.prod(dx)
     
     # Turn into a vector
     J_Vector = EM.to_vector(Grid, N)
     
-    # Return a sin times this vector
+    # Return the vector
     def get_J(t):
         return J_Vector
     
@@ -92,7 +92,7 @@ Sampler_Rho_2D = EM.sampler_Rho_scalar(Sim, Points_scalar)
 # Solve the statics problem
 print("Solving")
 StaticTime = Sim.solve(exact = Exact, progress = Progress)
-print(f"Solved starting conditions in {StaticTime:.2g} s")
+print(f"Solved in {StaticTime:.2g} s")
 
 # Create the images
 if Save is True and not os.path.exists(FilePos):

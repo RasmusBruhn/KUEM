@@ -35,19 +35,19 @@ Name_E_2D = "ExInfinitePlateCapacitorE.png"
 Name_V_1D = "ExInfinitePlateCapacitorV.png"
 Save = True
 
-# Define the current
+# Define the charge
 def J(dx, N, x0, c, mu0):
     # Create grid
     Grid = np.zeros(tuple(N) + (4,))
     
-    # Add in the current, normalising so the current is the same no matter the grid size
+    # Add in the charge, normalising so the charge is the same no matter the grid size
     Grid[:, :, int(N[2] * (1 + d) / 2), 0] = -c * SurfaceChargeDensity / dx[2]
     Grid[:, :, int(N[2] * (1 - d) / 2), 0] = c * SurfaceChargeDensity / dx[2]
     
     # Turn into a vector
     J_Vector = EM.to_vector(Grid, N)
     
-    # Return a sin times this vector
+    # Return the vector
     def get_J(t):
         return J_Vector
     
@@ -79,9 +79,9 @@ Sampler_E_2D = EM.sampler_E_vector(Sim, Points_vector, x_hat, y_hat)
 Sampler_V_1D = EM.sampler_V_line(Sim, Points_line)
 
 # Solve the statics problem
-print("Solving starting conditions")
+print("Solving")
 StaticTime = Sim.solve(exact = Exact, progress = Progress)
-print(f"Solved starting conditions in {StaticTime:.2g} s")
+print(f"Solved in {StaticTime:.2g} s")
 
 # Create the images
 if Save is True and not os.path.exists(FilePos):

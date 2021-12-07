@@ -28,19 +28,19 @@ Name_V_loop = "ExProblem7_6_loopV.png"
 Name_E_loop = "ExProblem7_6_loopE.png"
 Save = True
 
-# Define the current
+# Define the charge
 def J(dx, N, x0, c, mu0):
     # Create grid
     Grid = np.zeros(tuple(N) + (4,))
     
-    # Add in the current, normalising so the current is the same no matter the grid size
+    # Add in the charge, normalising so the charge is the same no matter the grid size
     Grid[:int(N[0] * L), :, int(N[2] * (1 + d) / 2), 0] = -c * SurfaceChargeDensity / dx[2]
     Grid[:int(N[0] * L), :, int(N[2] * (1 - d) / 2), 0] = c * SurfaceChargeDensity / dx[2]
     
     # Turn into a vector
     J_Vector = EM.to_vector(Grid, N)
     
-    # Return a sin times this vector
+    # Return the vector
     def get_J(t):
         return J_Vector
     

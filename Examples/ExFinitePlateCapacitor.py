@@ -1,3 +1,6 @@
+import sys
+import os
+sys.path.append('..')
 import numpy as np
 import KUEM as EM
 import matplotlib.pyplot as plt
@@ -20,25 +23,37 @@ Exact = False
 Progress = 5
 approx_n = 0.1
 
+# Plotting settings
+PlotScalar = True
+PlotContour = True
+PlotVector = False
+PlotStreams = True
+
+StreamDensity = 2
+StreamLength = 1
+ContourLevels = 10
+ContourLim = (-0.1, 0.1)
+
 # File names
+FilePos = "FinitePlateCapacitor/"
 Name_E_2D = "ExFinitePlateCapacitorE.png"
 Name_V_2D = "ExFinitePlateCapacitorV.png"
 Name_Rho_2D = "ExFinitePlateCapacitorRho.png"
 Save = True
 
-# Define the current
+# Define the charge
 def J(dx, N, x0, c, mu0):
     # Create grid
     Grid = np.zeros(tuple(N) + (4,))
     
-    # Add in the current, normalising so the current is the same no matter the grid size
+    # Add in the charge, normalising so the charge is the same no matter the grid size
     Grid[int(N[0] * (1 - L) / 2):int(N[0] * (1 + L) / 2), int(N[1] * (1 - L) / 2):int(N[1] * (1 + L) / 2), int(N[2] * (1 + d) / 2), 0] = -c * SurfaceChargeDensity / dx[2]
     Grid[int(N[0] * (1 - L) / 2):int(N[0] * (1 + L) / 2), int(N[1] * (1 - L) / 2):int(N[1] * (1 + L) / 2), int(N[2] * (1 - d) / 2), 0] = c * SurfaceChargeDensity / dx[2]
     
     # Turn into a vector
     J_Vector = EM.to_vector(Grid, N)
     
-    # Return a sin times this vector
+    # Return the vector
     def get_J(t):
         return J_Vector
     
@@ -71,17 +86,20 @@ Sampler_Rho_2D = EM.sampler_Rho_scalar(Sim, Points_scalar)
 # Solve the statics problem
 print("Solving")
 StaticTime = Sim.solve(exact = Exact, progress = Progress)
-print(f"Solved starting conditions in {StaticTime:.2g} s")
+print(f"Solved in {StaticTime:.2g} s")
 
 # Create the images
-fig_E_2D, _, _ = Sampler_E_2D.plot(0, extent = extent)
-if Save is True:
-    fig_E_2D.savefig(Name_E_2D)
+if Save is True and not os.path.exists(FilePos):
+    os.mkdir(FilePos)
 
-fig_V_2D, _, _ = Sampler_V_2D.plot(0, extent = extent)
+fig_E_2D, _, _ = Sampler_E_2D.plot(0, extent = extent, use_vector = PlotVector, use_streams = PlotStreams, density = StreamDensity, length = StreamLength)
 if Save is True:
-    fig_V_2D.savefig(Name_V_2D)
+    fig_E_2D.savefig(FilePos + Name_E_2D)
+
+fig_V_2D, _, _ = Sampler_V_2D.plot(0, extent = extent, contour_lim = ContourLim, use_scalar = PlotScalar, use_contour = PlotContour)
+if Save is True:
+    fig_V_2D.savefig(FilePos + Name_V_2D)
 
 fig_Rho_2D, _, _ = Sampler_Rho_2D.plot(0, extent = extent)
 if Save is True:
-    fig_Rho_2D.savefig(Name_Rho_2D)
+    fig_Rho_2D.savefig(FilePos + Name_Rho_2D)
