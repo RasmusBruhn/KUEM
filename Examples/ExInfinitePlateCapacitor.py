@@ -1,3 +1,6 @@
+import sys
+import os
+sys.path.append('..')
 import numpy as np
 import KUEM as EM
 import matplotlib.pyplot as plt
@@ -19,7 +22,15 @@ Exact = True
 Progress = 5
 approx_n = 0.1
 
+# Plotting settings
+PlotVector = True
+PlotStreams = False
+
+StreamDensity = 2
+StreamLength = 1
+
 # File names
+FilePos = "InfinitePlateCapacitor/"
 Name_E_2D = "ExInfinitePlateCapacitorE.png"
 Name_V_1D = "ExInfinitePlateCapacitorV.png"
 Save = True
@@ -73,10 +84,13 @@ StaticTime = Sim.solve(exact = Exact, progress = Progress)
 print(f"Solved starting conditions in {StaticTime:.2g} s")
 
 # Create the images
-fig_E_2D, _, _ = Sampler_E_2D.plot(0, extent = extent, cutoff = 0.01)
-if Save is True:
-    fig_E_2D.savefig(Name_E_2D)
+if Save is True and not os.path.exists(FilePos):
+    os.mkdir(FilePos)
 
-fig_V_2D, _, _ = Sampler_V_1D.plot(0)
+fig_E_2D, _, _ = Sampler_E_2D.plot(0, extent = extent, cutoff = 0.01, use_vector = PlotVector, use_streams = PlotStreams, density = StreamDensity, length = StreamLength)
 if Save is True:
-    fig_V_2D.savefig(Name_V_1D)
+    fig_E_2D.savefig(FilePos + Name_E_2D)
+
+fig_V_1D, _, _ = Sampler_V_1D.plot(0)
+if Save is True:
+    fig_V_1D.savefig(FilePos + Name_V_1D)

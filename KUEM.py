@@ -407,6 +407,7 @@ def update_plot_1D(Plot, Values, scale = default_scale):
 # clim:         Array containing the (min, max) values in the colour map, these are the raw values of the vector lengths,
 #               not the scaled values, if None then it will find the scale automatially by the minimum and maximum
 #               values of the lengths
+# cutoff:       The percentage of the max length of a vector or clim[1] where if a vector is smaller than this, then it will not be shown
 def plot_vector(vx, vy, extent = [0, 1, 0, 1], scale = default_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None, cutoff = 0):  
     # Calculate the positions of the vectors
     x = np.linspace(extent[0], extent[1], vx.shape[0])
@@ -503,7 +504,7 @@ class streamplot:
         vAbs = np.sqrt(vx ** 2 + vy ** 2).transpose()
 
         # Plot new streams
-        self.__plot = self.__ax.streamplot(self.__X.transpose(), self.__Y.transpose(), vx.transpose(), vy.transpose(), color = scale(vAbs), norm = self.__norm, cmap = self.__cmap, minlength = self.__minlength, density = self.__density)
+        self.__plot = self.__ax.streamplot(self.__X.transpose(), self.__Y.transpose(), vx.transpose(), vy.transpose(), color = scale(vAbs.transpose()), norm = self.__norm, cmap = self.__cmap, minlength = self.__minlength, density = self.__density)
         
         return self.__plot
 
@@ -524,14 +525,14 @@ class streamplot:
 #               values of the lengths
 # density:      How many stream lines should be drawn
 # length:       The minimum length of the lines (In some scaled coordinates)
-def plot_streams(vx, vy, extent = [0, 1, 0, 1], scale = default_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None, density = 1, length = 1):
+def plot_streams(vx, vy, extent = [0, 1, 0, 1], scale = default_scale, fig = None, ax = None, figsize = np.array([10., 10.]), dpi = 100, cmap = "coolwarm", clim = None, density = 1, length = 1, cutoff = 0):
     # Calculate the positions of the vectors
     x = np.linspace(extent[0], extent[1], vx.shape[0])
     y = np.linspace(extent[2], extent[3], vy.shape[1])
     X, Y = np.meshgrid(x, y, indexing = "ij")
 
     # Calculate length of vectors
-    vAbs = np.sqrt(vx ** 2 + vy ** 2).transpose()
+    vAbs = np.sqrt(vx ** 2 + vy ** 2)
     
     # Calculate clim
     if clim is None:
@@ -547,7 +548,7 @@ def plot_streams(vx, vy, extent = [0, 1, 0, 1], scale = default_scale, fig = Non
         fig, ax = plt.subplots(figsize = figsize, dpi = dpi)
 
     # Plot vectors
-    Plot = ax.streamplot(X.transpose(), Y.transpose(), vx.transpose(), vy.transpose(), color = scale(vAbs), norm = Norm, cmap = cmap, minlength = np.min([extent[1] - extent[0], extent[3] - extent[2]]) * length / 10, density = density)
+    Plot = ax.streamplot(X.transpose(), Y.transpose(), vx.transpose(), vy.transpose(), color = scale(vAbs.transpose()), norm = Norm, cmap = cmap, minlength = np.min([extent[1] - extent[0], extent[3] - extent[2]]) * length / 10, density = density)
 
     return fig, ax, streamplot(ax, Plot, X, Y, Norm, cmap, np.min([extent[1] - extent[0], extent[3] - extent[2]]) * length / 10, density)
     

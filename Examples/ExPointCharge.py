@@ -87,7 +87,7 @@ StaticTime = Sim.solve(exact = Exact, progress = Progress)
 print(f"Solved starting conditions in {StaticTime:.2g} s")
 
 # Create the images
-if Save is True:
+if Save is True and not os.path.exists(FilePos):
     os.mkdir(FilePos)
 
 fig_E_2D, _, _ = Sampler_E_2D.plot(0, extent = extent, scale = np.log, density = StreamDensity, length = StreamLength, use_vector = PlotVector, use_streams = PlotStreams)
