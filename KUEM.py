@@ -375,7 +375,7 @@ def plot_1D(Values, x = None, xlim = None, ylim = None, scale = default_scale, f
         ax.set_xlim(xlim[0], xlim[1])
     
     if ylim is not None:
-        ax.set_ylim(ylim[1], ylim[1])
+        ax.set_ylim(ylim[0], ylim[1])
     
     return fig, ax, Plot[0]
 
@@ -501,7 +501,12 @@ class streamplot:
         self.__plot.lines.remove()
         
         # Find vAbs
-        vAbs = np.sqrt(vx ** 2 + vy ** 2).transpose()
+        vAbs = np.sqrt(vx ** 2 + vy ** 2)
+        
+        # Make sure it can plot
+        if np.all(vAbs == 0):
+            vAbs[:] = 1
+            vy[:] = 1
 
         # Plot new streams
         self.__plot = self.__ax.streamplot(self.__X.transpose(), self.__Y.transpose(), vx.transpose(), vy.transpose(), color = scale(vAbs.transpose()), norm = self.__norm, cmap = self.__cmap, minlength = self.__minlength, density = self.__density)
@@ -533,12 +538,17 @@ def plot_streams(vx, vy, extent = [0, 1, 0, 1], scale = default_scale, fig = Non
 
     # Calculate length of vectors
     vAbs = np.sqrt(vx ** 2 + vy ** 2)
-    
+        
     # Calculate clim
     if clim is None:
         clim = np.array([np.min(vAbs), np.max(vAbs)], dtype = float)
         
     clim = scale(clim)
+    
+    # Make sure it can plot
+    if np.all(vAbs == 0):
+        vAbs[:] = 1
+        vy[:] = 1
     
     # Create the color norm
     Norm = c.Normalize(vmin = clim[0], vmax = clim[1])
@@ -617,7 +627,7 @@ def default_J(dx, N, x0, c, mu0):
 def default_C(dx, N, x0, c, mu0):
     # Create a closed boundary condition which is 0 everywhere, the first axis is the coordinate
     # The second axis is the direction of the boundary
-    C = np.zeros((3, 2, np.prod(N), 4), dtype = float)
+    C = np.zeros((np.prod(N), 4, 3, 2), dtype = float)
        
     # Create the function to return the conditions
     # t:        The time
@@ -646,18 +656,18 @@ def get_boundaries_open(N, Coordinate, Dir):
 
     # Add the ones
     if Dir == 0:
-        Tile[:np.prod(N[:Coordinate])] = 5#4
-        OffTile1[:np.prod(N[:Coordinate])] = -10#-6
-        OffTile2[:np.prod(N[:Coordinate])] = 10#4
-        OffTile3[:np.prod(N[:Coordinate])] = -5#-1
-        OffTile4[:np.prod(N[:Coordinate])] = 1#0
+        Tile[:np.prod(N[:Coordinate])] = 4#5#4
+        OffTile1[:np.prod(N[:Coordinate])] = -6#-10#-6
+        OffTile2[:np.prod(N[:Coordinate])] = 4#10#4
+        OffTile3[:np.prod(N[:Coordinate])] = -1#-5#-1
+        OffTile4[:np.prod(N[:Coordinate])] = 0#1#0
 
     else:
-        Tile[-np.prod(N[:Coordinate]):] = 5#4
-        OffTile1[-np.prod(N[:Coordinate]):] = -10#-6
-        OffTile2[-np.prod(N[:Coordinate]):] = 10#4
-        OffTile3[-np.prod(N[:Coordinate]):] = -5#-1
-        OffTile4[-np.prod(N[:Coordinate]):] = 1#0
+        Tile[-np.prod(N[:Coordinate]):] = 4#5#4
+        OffTile1[-np.prod(N[:Coordinate]):] = -6#-10#-6
+        OffTile2[-np.prod(N[:Coordinate]):] = 4#10#4
+        OffTile3[-np.prod(N[:Coordinate]):] = -1#-5#-1
+        OffTile4[-np.prod(N[:Coordinate]):] = 0#1#0
         OffPos1 *= -1
         OffPos2 *= -1
         OffPos3 *= -1
@@ -880,10 +890,10 @@ def get_grad(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["
     def calcGrad(Scalar, C):
         # Create empty vector field
         Result = np.empty((np.prod(N), 3))
-        
+
         # Calculate result
         for i in range(3):
-            Result[:, i] = ddx[i].dot(Scalar) + 1 / (2 * dx[i]) * (C[i, 1] - C[i, 0])
+            Result[:, i] = ddx[i].dot(Scalar) + 1 / (2 * dx[i]) * (C[:, i, 1] - C[:, i, 0])
         
         # Return result
         return Result
@@ -903,7 +913,7 @@ def get_div(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["c
     # C:        The closed boundary conditions for some time
     def calcDiv(Vector, C):
         # Calculate result
-        return ddx[0].dot(Vector[:, 0]) + 1 / (2 * dx[0]) * (C[0, 1] - C[0, 0]) + ddx[1].dot(Vector[:, 1]) + 1 / (2 * dx[1]) * (C[1, 1] - C[1, 0]) + ddx[2].dot(Vector[:, 2]) + 1 / (2 * dx[2]) * (C[2, 1] - C[2, 0])
+        return ddx[0].dot(Vector[:, 0]) + 1 / (2 * dx[0]) * (C[:, :, 0, 1] - C[:, :, 0, 0]) + ddx[1].dot(Vector[:, 1]) + 1 / (2 * dx[1]) * (C[:, :, 1, 1] - C[:, :, 1, 0]) + ddx[2].dot(Vector[:, 2]) + 1 / (2 * dx[2]) * (C[:, :, 2, 1] - C[:, :, 2, 0])
     
     return calcDiv
 
@@ -924,7 +934,7 @@ def get_curl(dx, N, boundaries = [["closed", "closed"], ["closed", "closed"], ["
 
         # Calculate curl
         for i in range(3):
-            Result[:, i] = ddx[(i + 1) % 3].dot(Vector[:, (i + 2) % 3]) + 1 / (2 * dx[(i + 1) % 3]) * (C[(i + 1) % 3, 1, :, (i + 2) % 3] - C[(i + 1) % 3, 0, :, (i + 2) % 3]) - ddx[(i + 2) % 3].dot(Vector[:, (i + 1) % 3]) - 1 / (2 * dx[(i + 2) % 3]) * (C[(i + 2) % 3, 1, :, (i + 1) % 3] - C[(i + 2) % 3, 0, :, (i + 1) % 3])
+            Result[:, i] = ddx[(i + 1) % 3].dot(Vector[:, (i + 2) % 3]) + 1 / (2 * dx[(i + 1) % 3]) * (C[:, (i + 2) % 3, (i + 1) % 3, 1] - C[:, (i + 2) % 3, (i + 1) % 3, 0]) - ddx[(i + 2) % 3].dot(Vector[:, (i + 1) % 3]) - 1 / (2 * dx[(i + 2) % 3]) * (C[:, (i + 1) % 3, (i + 2) % 3, 1] - C[:, (i + 1) % 3, (i + 2) % 3, 0])
             
         return Result
     
@@ -987,7 +997,7 @@ def solve_exact(J, lapl, C, mu0, dx):
     b = -mu0 * J
     
     for Coordinate in range(3):
-        b -= 1 / dx[Coordinate] ** 2 * (C[Coordinate, 0] + C[Coordinate, 1])
+        b -= 1 / dx[Coordinate] ** 2 * (C[:, :, Coordinate, 0] + C[:, :, Coordinate, 1])
     
     return slinalg.spsolve(lapl, b)
 
@@ -1013,7 +1023,7 @@ def solve_approx(J, lapl, C, mu0, dx, A0, n, k, progress = False):
     b = k * mu0 * J
     
     for Coordinate in range(3):
-        b += k / dx[Coordinate] ** 2 * (C[Coordinate, 0] + C[Coordinate, 1])
+        b += k / dx[Coordinate] ** 2 * (C[:, :, Coordinate, 0] + C[:, :, Coordinate, 1])
     
     # Setup time for writing time remaining
     Time0 = time.time()
@@ -1046,8 +1056,8 @@ def solve_dynamics(A, dAdt, J, lapl, C, dx, dt, c, mu0, n, exact = False):
     # Get R
     R = (c * dt) ** 2 / 8. * mu0 * J + dt / 2. * dAdt + A
     
-    #for Coordinate in range(3):
-    #    R += (c * dt) ** 2 / (8 * dx[Coordinate] ** 2) * (C[Coordinate, 0] + C[Coordinate, 1])
+    for Coordinate in range(3):
+        R += (c * dt) ** 2 / (8 * dx[Coordinate] ** 2) * (C[:, :, Coordinate, 0] + C[:, :, Coordinate, 1])
     
     # Calculate matrix
     M = (c * dt) ** 2 / 8 * lapl
@@ -1275,14 +1285,14 @@ class sim:
     # Get E-field
     def get_E(self):
         if self.__E is None:
-            self.__E = calc_E(self.__A[:, 0] * self.__c, self.__grad, self.__C(self.__t)[:, :, :, 0])
+            self.__E = calc_E(self.__A[:, 0] * self.__c, self.__grad, self.__C(self.__t)[:, 0, :, :])
         
         return self.__E
     
     # Get the B-field
     def get_B(self):
         if self.__B is None:
-            self.__B = calc_B(self.__A[:, 1:], self.__curl, self.__C(self.__t)[:, :, :, 1:])
+            self.__B = calc_B(self.__A[:, 1:], self.__curl, self.__C(self.__t)[:, 1:, :, :])
         
         return self.__B
     
@@ -1585,7 +1595,7 @@ class video:
     # vx:           The x-component of the vectors
     # vy:           The y-component of the vectors
     def update_streams(self, vx, vy):
-        update_plot_streams(vx, vy, scale = self.__scale)
+        update_plot_streams(self.__plot, vx, vy, scale = self.__scale)
         
 
 # A class to take samples of a simulation every timestep
