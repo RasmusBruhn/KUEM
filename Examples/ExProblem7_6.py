@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import KUEM as EM
 import matplotlib.pyplot as plt
@@ -21,6 +22,7 @@ Progress = 5
 approx_n = 0.1
 
 # File names
+FilePos = "Problem7_6/"
 Name_E_2D = "ExProblem7_6_E.png"
 Name_V_2D = "ExProblem7_6_V.png"
 Name_Rho_2D = "ExProblem7_6_Rho.png"
@@ -101,29 +103,32 @@ StaticTime = Sim.solve(exact = Exact, progress = Progress)
 print(f"Solved starting conditions in {StaticTime:.2g} s")
 
 # Create the images
+if Save is True and not os.path.exists(FilePos):
+    os.mkdir(FilePos)
+
 fig_E_2D, ax_E_2D, _ = Sampler_E_2D.plot(0, extent = extent)
 ax_E_2D.plot(Line_x, Line_y)
 if Save is True:
-    fig_E_2D.savefig(Name_E_2D)
+    fig_E_2D.savefig(FilePos + Name_E_2D)
 
 fig_V_2D, _, _ = Sampler_V_2D.plot(0, extent = extent, use_contour = True, levels = 15)
 if Save is True:
-    fig_V_2D.savefig(Name_V_2D)
+    fig_V_2D.savefig(FilePos + Name_V_2D)
 
 fig_Rho_2D, _, _ = Sampler_Rho_2D.plot(0, extent = extent)
 if Save is True:
-    fig_Rho_2D.savefig(Name_Rho_2D)
+    fig_Rho_2D.savefig(FilePos + Name_Rho_2D)
 
 fig_V_loop, ax_V_loop, _ = Sampler_V_loop.plot(0)
 ax_V_loop.set_title("Potential on rectangular wire")
 ax_V_loop.set_xlabel("Distance")
 ax_V_loop.set_ylabel("Electric potential")
 if Save is True:
-    fig_V_loop.savefig(Name_V_loop)
+    fig_V_loop.savefig(FilePos + Name_V_loop)
 
 fig_E_loop, ax_E_loop, _ = Sampler_E_loop.plot(0)
 ax_E_loop.set_title("Electromotive force per unit length on rectangular wire")
 ax_E_loop.set_xlabel("Distance")
 ax_E_loop.set_ylabel("Electromotive for per unit length (Strength of E along wire)")
 if Save is True:
-    fig_E_loop.savefig(Name_E_loop)
+    fig_E_loop.savefig(FilePos + Name_E_loop)

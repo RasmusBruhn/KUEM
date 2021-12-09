@@ -1,6 +1,4 @@
-import sys
 import os
-sys.path.append('..')
 import numpy as np
 import KUEM as EM
 import matplotlib.pyplot as plt
